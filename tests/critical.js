@@ -6,6 +6,9 @@ canvas.setPointerCapture=()=>{};canvas.hasPointerCapture=()=>false;
 try{
 preferences.theme='dark';applyPreferences();check('dark theme',document.documentElement.dataset.theme==='dark');preferences.theme='system';applyPreferences();check('system theme',document.documentElement.dataset.theme===(systemTheme.matches?'dark':'light'));book.paperColor='cream';render();check('paper independent of theme',$('page').style.getPropertyValue('--paper')===paperColors.cream);
 const initial=book.pages[page].length;
+preferences.smoothing=70;pointer('pointerdown',99,100,100);pointer('pointermove',99,105,105);check('jitter stabilization',drawing.points.at(-1).x<pos({clientX:105,clientY:105}).x);pointer('pointerup',99,110,110);book.pages[page].pop();
+preferences.smoothing=0;pointer('pointerdown',98,100,100);pointer('pointermove',98,110,110);check('smoothing can be disabled',drawing.points.at(-1).x===pos({clientX:110,clientY:110}).x);pointer('pointerup',98);book.pages[page].pop();
+
 pointer('pointerdown',1,100,100,'touch',{width:40});pointer('pointermove',1,120,120);pointer('pointerup',1,140,140);
 check('third-party stylus / wide touch draws',book.pages[page].length===initial+1);
 pointer('pointerdown',2);pointer('pointermove',3);pointer('pointerup',3);
