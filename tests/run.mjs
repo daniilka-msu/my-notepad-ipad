@@ -1,4 +1,5 @@
-import {verifyShapeUI,verifyBrushUI,verifyTextUI,verifyImageUI,verifyChartUI} from './interaction.mjs';
+import {createNotepadServer} from '../server/app.mjs';
+import {verifyShapeUI,verifyBrushUI,verifyTextUI,verifyImageUI,verifyChartUI,verifyAssistantUI} from './interaction.mjs';
 ﻿import http from 'node:http';
 import {readFile,writeFile,mkdtemp,mkdir} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
@@ -11,9 +12,11 @@ const tests=await readFile(resolve(root,'tests/critical.js'),'utf8');
 const legacySeed='<script>localStorage.setItem("ipad-notebooks-v1",JSON.stringify({selected:"legacy",books:[{id:"legacy",name:"Старый конспект",paper:"grid",pages:[[{tool:"pen",color:"#222222",width:3,points:[{x:20,y:20},{x:30,y:30}]}]]}]}));</script>';
 const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/interface.js"></script><script src="tests/paper.js"></script><script src="tests/shapes.js"></script><script src="tests/brushes.js"></script><script src="tests/text.js"></script><script src="tests/images.js"></script><script src="tests/charts.js"></script><script src="tests/critical.js"></script>');
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.wasm':'application/wasm','.svg':'image/svg+xml','.pdf':'application/pdf'};
+let aiBackend,providerPayload,providerStatus=200;
 const server=http.createServer(async(req,res)=>{
  try{
  const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
+ if(pathname.startsWith('/api/')){if(!aiBackend){res.writeHead(503).end();return}aiBackend.emit('request',req,res);return}
  if(pathname==='/test'){res.setHeader('Content-Type',types['.html']);res.end(html);return}
  const file=resolve(root,'.'+(pathname==='/'?'/index.html':pathname));if(!file.startsWith(root+ '\\')){res.writeHead(403).end();return}
  res.setHeader('Content-Type',types[extname(file)]||'application/octet-stream');res.end(await readFile(file));
@@ -21,6 +24,7 @@ const server=http.createServer(async(req,res)=>{
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const port=server.address().port,profile=await mkdtemp(resolve(tmpdir(),'notepad-tests-'));
+aiBackend=await createNotepadServer({origin:'http://127.0.0.1:'+port,password:'browser-test-password-only',apiKey:'fake-transport-test-key',dataDirectory:resolve(profile,'quotas'),fetchImpl:async(url,options)=>{providerPayload=JSON.parse(options.body);return providerStatus===200?{ok:true,json:async()=>({choices:[{message:{content:'Ответ тестового транспорта: конспект получен'}}]})}:{ok:false,status:providerStatus,headers:new Headers()}}});
 const browser=spawn(process.env.EDGE_PATH||'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless','--disable-gpu','--no-first-run','--remote-debugging-port=0',`--user-data-dir=${profile}`,`http://127.0.0.1:${port}/test`],{windowsHide:true,stdio:'ignore'});
 let ws;
 try{
@@ -78,6 +82,7 @@ try{
    await verifyTextUI(call,process.env.SCREENSHOT_DIR?async name=>{await mkdir(process.env.SCREENSHOT_DIR,{recursive:true});await sleep(250);const image=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.SCREENSHOT_DIR,name),Buffer.from(image.result.data,'base64'))}:null);
    await verifyImageUI(call,async content=>{const path=resolve(profile,'insert-test.png');await writeFile(path,Buffer.from(content,'base64'));return path});
    await verifyChartUI(call);
+   await verifyAssistantUI(call,{endpoint:'http://127.0.0.1:'+port+'/api/assistant',payload:()=>providerPayload,setStatus:value=>providerStatus=value});
    await call('Runtime.evaluate',{expression:'save()',awaitPromise:true,returnByValue:true});
    if(process.env.SCREENSHOT_DIR){
      await mkdir(process.env.SCREENSHOT_DIR,{recursive:true});await call('Emulation.setDeviceMetricsOverride',{width:1024,height:1366,deviceScaleFactor:1,mobile:true});
