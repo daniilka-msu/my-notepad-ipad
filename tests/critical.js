@@ -115,6 +115,15 @@ check('restore preserves existing books',oldIds.every(id=>merged.books.some(b=>b
 check('restore remaps document IDs',merged.books.at(-1).backgrounds[0].id!==importedImage.book.backgrounds[0].id);
 check('restore commits assets atomically',(await NotepadStore.asset(merged.books.at(-1).backgrounds[0].id)) instanceof Blob);
 data=merged;render();await save();
+$('bookSearch').value='нет-такой-тетради';$('bookSearch').dispatchEvent(new Event('input'));check('notebook search filters library',$('books').children.length===0);$('bookSearch').value='';$('bookSearch').dispatchEvent(new Event('input'));
+$('bookSort').value='name';$('bookSort').dispatchEvent(new Event('change'));check('notebook sorting',visibleBooks().every((b,i,list)=>!i||list[i-1].name.localeCompare(b.name,'ru')<=0));
+$('focusMode').click();check('focus hides library',getComputedStyle($('sidebar')).display==='none');$('focusMode').click();
+$('savePreset').click();check('pen preset saved',JSON.parse(localStorage.getItem('notepad-preferences')).penPresets.length>0);
+const shapePage=book.pages[page];book.pages[page]=[];
+for(const kind of ['line','rect','ellipse','arrow']){$('shapeKind').value=kind;Editor.choose('shape');emit('pointerdown',700,100,100,300);emit('pointermove',700,140,140,310);emit('pointerup',700,140,140,311);check('shape '+kind,book.pages[page].at(-1).shape===kind&&book.pages[page].at(-1).points.length>=2)}
+const shapeCount=book.pages[page].length;const originalConfirm=window.confirm;window.confirm=()=>true;$('clear').click();window.confirm=originalConfirm;check('clear is undoable',book.pages[page].at(-1).targets.length===shapeCount);$('undo').click();check('undo restores cleared page',book.pages[page].length===shapeCount);$('redo').click();check('redo clears again',book.pages[page].at(-1).targets.length===shapeCount);
+book.pages[page]=shapePage;redo=[];Editor.choose('pen');render();
+await $('showPages').onclick();check('page thumbnail navigation',$('pageThumbnails').querySelectorAll('canvas').length===book.pages.length);$('closePages').click();
 $('theme').value='dark';$('theme').dispatchEvent(new Event('change'));check('theme saved',JSON.parse(localStorage.getItem('notepad-preferences')).theme==='dark');
 $('settingsWidth').value='7';$('settingsWidth').dispatchEvent(new Event('input'));check('settings and toolbar share pen width',$('width').value==='7'&&preferences.width===7);
 }catch(error){results.push('FAIL '+error.stack)}

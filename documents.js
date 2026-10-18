@@ -36,7 +36,6 @@ const Documents=(()=>{
     return {book:imported,assets:entries};
   }
   async function compose(notebook,index){
-    const previousBook=book,previousPage=page;
     const height=notebook.pageSize==='square'?W:notebook.pageSize==='a5'?Math.round(W*794/559):H;
     const target=document.createElement('canvas');target.width=W;target.height=height;const c=target.getContext('2d');
     c.fillStyle=paperColors[notebook.paperColor]||paperColors.white;c.fillRect(0,0,W,height);
@@ -48,6 +47,7 @@ const Documents=(()=>{
       if(notebook.paper==='dots'){for(let x=12;x<W;x+=step)for(let y=12;y<height;y+=step){c.beginPath();c.arc(x,y,1,0,Math.PI*2);c.fill()}}
       else {for(let y=0;y<height;y+=step){c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke()}if(notebook.paper==='grid')for(let x=0;x<W;x+=step){c.beginPath();c.moveTo(x,0);c.lineTo(x,height);c.stroke()}}
     }
+    const previousBook=book,previousPage=page;
     try{book=notebook;page=index;paint();c.drawImage(canvas,0,0,W,height)}finally{book=previousBook;page=previousPage;paint()}
     return target;
   }

@@ -58,7 +58,11 @@ function save(){
 }
 function autosave(){save().catch(()=>{})}
 function selected(){book=data.books.find(b=>b.id===data.selected)||data.books[0];data.selected=book.id;page=Math.min(page,book.pages.length-1)}
-function renderBooks(){selected();$('books').replaceChildren();for(const b of data.books){const el=document.createElement('button');el.className='book'+(b.id===book.id?' selected':'');el.textContent='📓 '+b.name;el.onclick=()=>{data.selected=b.id;page=0;redo=[];render();$('sidebar').classList.remove('open')};$('books').append(el)}}
+function visibleBooks(){
+  const query=($('bookSearch')?.value||'').trim().toLocaleLowerCase('ru');let books=data.books.filter(b=>b.name.toLocaleLowerCase('ru').includes(query));
+  const order=$('bookSort')?.value;if(order==='name')books.sort((a,b)=>a.name.localeCompare(b.name,'ru'));if(order==='newest')books.reverse();return books;
+}
+function renderBooks(){selected();$('books').replaceChildren();for(const b of visibleBooks()){const el=document.createElement('button');el.className='book'+(b.id===book.id?' selected':'');el.textContent='📓 '+b.name;el.onclick=()=>{data.selected=b.id;page=0;redo=[];render();$('sidebar').classList.remove('open')};$('books').append(el)}}
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
 const ink=inkLayer.getContext('2d');
 function stroke(s){
@@ -141,6 +145,7 @@ function appendPoint(e,endpoint=false){
   if(distance>(endpoint?32:Math.max(160,elapsed*6))){if(!endpoint)finish();return}
   const point=pos(e),last=drawing.points.at(-1);
   if(endpoint)point.p=last.p;
+  if(drawing.shape){drawing.points=shapePoints(drawing.shape,drawing.points[0],point);lastSample={x:e.clientX,y:e.clientY,time:e.timeStamp};return}
   drawing.points.push(filterPoint(point,last,drawing.smoothing,drawing.stabilization));
   lastSample={x:e.clientX,y:e.clientY,time:e.timeStamp};
 }
@@ -155,10 +160,17 @@ inputHint.className='input-hint';
 inputHint.textContent='Неоригинальный стилус может определяться как палец — выберите «Любой стилус и палец». Safari не гарантирует распознавание модели стилуса, включая Apple Pencil.';
 $('toolbar').after(inputHint);
 $('writingSettings').append(inputHint);
+let holdTimer=null;
+function scheduleHold(){
+  clearTimeout(holdTimer);const current=drawing;
+  if(!preferences.holdShape||!current||current.tool!=='pen'||current.shape||current.points.length<3)return;
+  holdTimer=setTimeout(()=>{if(drawing!==current)return;const first=current.points[0],last=current.points.at(-1);if(Math.hypot(last.x-first.x,last.y-first.y)<25)return;current.shape='line';current.points=shapePoints('line',first,last);current.pressure=false;current.smoothing=0;paint()},650);
+}
 function schedulePaint(){if(frame===null)frame=requestAnimationFrame(()=>{frame=null;paint()})}
 function finish(){
   if(!drawing)return;
   const pointer=activePointer;
+  clearTimeout(holdTimer);
   if(drawing.tool==='stroke-eraser')drawing.targets=erasedTargets(drawing,strokePage);
   strokePage.push(drawing);drawing=null;activePointer=null;activeType=null;strokePage=null;lastSample=null;redo=[];
   if(canvas.hasPointerCapture(pointer))canvas.releasePointerCapture(pointer);
@@ -178,7 +190,8 @@ canvas.addEventListener('pointerdown',e=>{
   e.preventDefault();activePointer=e.pointerId;activeType=e.pointerType;
   strokePage=book.pages[page];lastSample={x:e.clientX,y:e.clientY,time:e.timeStamp};
   try{canvas.setPointerCapture(e.pointerId)}catch{activePointer=null;activeType=null;strokePage=null;lastSample=null;return}
-  drawing={filtered:true,stabilization:preferences.stabilization,tool,color:$('color').value,width:Number($('width').value)*(tool==='pen'?1:5),penType:preferences.penType,smoothing:preferences.smoothing,opacity:preferences.opacity/100,pressure:e.pointerType==='pen'&&'pressure'in e,points:[pos(e)]};
+  drawing={filtered:true,stabilization:preferences.stabilization,tool,color:$('color').value,width:Number($('width').value)*(['pen','shape'].includes(tool)?1:5),penType:preferences.penType,smoothing:preferences.smoothing,opacity:preferences.opacity/100,pressure:e.pointerType==='pen'&&'pressure'in e,points:[pos(e)]};
+  if(tool==='shape'){drawing.shape=$('shapeKind').value;drawing.tool='pen';drawing.pressure=false;drawing.smoothing=0}
   if(tool==='eraser'&&preferences.eraserMode==='stroke')drawing.tool='stroke-eraser';
   schedulePaint();
 });
@@ -190,6 +203,7 @@ canvas.addEventListener('pointermove',e=>{
   let samples=[];try{samples=e.getCoalescedEvents?.()||[]}catch{}
   samples=[...samples,e].filter(sample=>sample.pointerId===activePointer&&sample.pointerType===activeType&&Number.isFinite(sample.timeStamp)&&sample.timeStamp<=e.timeStamp).sort((a,b)=>a.timeStamp-b.timeStamp);
   for(const sample of samples){if(!drawing)break;appendPoint(sample)}
+  scheduleHold();
   schedulePaint();
 });
 canvas.addEventListener('pointerup',e=>{
@@ -208,7 +222,7 @@ window.addEventListener('pagehide',finish);
 window.addEventListener('blur',finish);
 document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.tool;document.querySelectorAll('.tool').forEach(x=>x.classList.toggle('active',x===b))});
 $('undo').onclick=()=>{const s=book.pages[page].pop();if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s)book.pages[page].push(s);render()};
-$('clear').onclick=()=>{if(confirm('Очистить текущую страницу?')){book.pages[page]=[];redo=[];render()}};
+$('clear').onclick=()=>{if(confirm('Очистить текущую страницу?')){book.pages[page].push({tool:'stroke-eraser',color:'#000000',width:1,points:[],targets:book.pages[page].map((_,i)=>i)});redo=[];render()}};
 $('newBook').onclick=()=>{const name=prompt('Название тетради:','Новая тетрадь');if(!name?.trim())return;const b={id:uid(),name:name.trim(),paper:'grid',pages:[[]]};data.books.push(b);data.selected=b.id;page=0;redo=[];render()};
 $('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};$('toggleSidebar').onclick=()=>{if(!preferences.showSidebar){preferences.showSidebar=true;$('showSidebar').checked=true;applyPreferences()}$('sidebar').classList.toggle('open')};
 
