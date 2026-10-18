@@ -4,6 +4,8 @@ function check(name,condition){results.push((condition?'PASS ':'FAIL ')+name)}
 function pointer(type,id,x=100,y=100,pointerType='touch',extra={}){canvas.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType,clientX:x,clientY:y,bubbles:true,cancelable:true,...extra}))}
 canvas.setPointerCapture=()=>{};canvas.hasPointerCapture=()=>false;
 try{await ready;
+check('legacy localStorage migrated',data.books[0].id==='legacy'&&storageReady);
+check('legacy source retained',JSON.parse(localStorage.getItem(KEY)).books[0].name==='Старый конспект');
 preferences.theme='dark';applyPreferences();check('dark theme',document.documentElement.dataset.theme==='dark');preferences.theme='system';applyPreferences();check('system theme',document.documentElement.dataset.theme===(systemTheme.matches?'dark':'light'));book.paperColor='cream';render();check('paper independent of theme',$('page').style.getPropertyValue('--paper')===paperColors.cream);
 const initial=book.pages[page].length;
 preferences.smoothing=70;pointer('pointerdown',99,100,100);pointer('pointermove',99,105,105);check('jitter stabilization',drawing.points.at(-1).x<pos({clientX:105,clientY:105}).x);pointer('pointerup',99,110,110);book.pages[page].pop();
@@ -40,9 +42,25 @@ await NotepadStore.putAssets(importedPdf.assets);
 importedPdf.book.pages[0].push({tool:'pen',color:'#ff0000',width:8,points:[{x:100,y:100},{x:200,y:100}]});
 const composed=await Documents.compose(importedPdf.book,0);check('annotated export contains ink',composed.getContext('2d').getImageData(150,100,1,1).data[0]===255);
 check('document export restores editor',book.id===data.selected&&page===1);
+importedPdf.book.pageSize='square';check('square export matches page format',(await Documents.compose(importedPdf.book,0)).height===W);delete importedPdf.book.pageSize;
 await AIAssistant.connect();check('AI honestly disconnected',$('aiStatus').textContent.includes('ИИ не подключён')&&$('sendAI').disabled);
 const beforeText=book.pages.length;insertTextPages('Ответ помощника\nПояснение решения');check('AI insertion appends new page',book.pages.length===beforeText+1&&book.pages.at(-1)[0].type==='text');
 check('AI text rendered',ctx.getImageData(30,30,1480,150).data.some(value=>value>0));
+const fixtureStroke={tool:'pen',color:'#222222',width:3,points:[{x:0,y:50},{x:100,y:50}]};
+check('fast whole-stroke eraser intersects between samples',erasedTargets({width:10,points:[{x:50,y:0},{x:50,y:100}]},[fixtureStroke]).includes(0));
+const backup=await Backups.create(data,preferences),parsed=await Backups.parse(JSON.stringify(backup));
+check('backup round trip retains notes',parsed.library.books[0].pages[0].length===data.books[0].pages[0].length);
+let rejected=false;try{await Backups.parse('{"format":"my-notepad-backup","version":2,"library":{"books":[]},"assets":[]}')}catch{rejected=true}check('invalid backup rejected',rejected);
+const withDocument={selected:importedImage.book.id,books:[importedImage.book]};
+const docBackup=await Backups.create(withDocument,preferences),docParsed=await Backups.parse(JSON.stringify(docBackup));
+check('backup includes image blobs',docParsed.assets.size===1);
+const oldIds=data.books.map(b=>b.id),merged=await Backups.merge(data,docParsed);
+check('restore preserves existing books',oldIds.every(id=>merged.books.some(b=>b.id===id))&&merged.books.length===data.books.length+1);
+check('restore remaps document IDs',merged.books.at(-1).backgrounds[0].id!==importedImage.book.backgrounds[0].id);
+check('restore commits assets atomically',(await NotepadStore.asset(merged.books.at(-1).backgrounds[0].id)) instanceof Blob);
+data=merged;render();await save();
+$('theme').value='dark';$('theme').dispatchEvent(new Event('change'));check('theme saved',JSON.parse(localStorage.getItem('notepad-preferences')).theme==='dark');
+$('settingsWidth').value='7';$('settingsWidth').dispatchEvent(new Event('input'));check('settings and toolbar share pen width',$('width').value==='7'&&preferences.width===7);
 }catch(error){results.push('FAIL '+error.stack)}
 document.body.innerHTML='';const output=document.createElement('pre');output.id='results';output.textContent=results.join('\n');document.body.append(output);
 })();

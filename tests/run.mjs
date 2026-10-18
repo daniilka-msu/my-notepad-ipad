@@ -1,5 +1,5 @@
 ﻿import http from 'node:http';
-import {readFile,writeFile,mkdtemp} from 'node:fs/promises';
+import {readFile,writeFile,mkdtemp,mkdir} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawn} from 'node:child_process';
@@ -7,7 +7,8 @@ const root=resolve(import.meta.dirname,'..');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const index=await readFile(resolve(root,'index.html'),'utf8');
 const tests=await readFile(resolve(root,'tests/critical.js'),'utf8');
-const html=index.replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/critical.js"></script>');
+const legacySeed='<script>localStorage.setItem("ipad-notebooks-v1",JSON.stringify({selected:"legacy",books:[{id:"legacy",name:"Старый конспект",paper:"grid",pages:[[{tool:"pen",color:"#222222",width:3,points:[{x:20,y:20},{x:30,y:30}]}]]}]}));</script>';
+const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/critical.js"></script>');
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.wasm':'application/wasm','.svg':'image/svg+xml','.pdf':'application/pdf'};
 const server=http.createServer(async(req,res)=>{
  try{
@@ -39,5 +40,26 @@ try{
  }
  if(!output)throw new Error('Tests timed out: '+errors.join('\n'));
  console.log(output);if(output.includes('FAIL'))process.exitCode=1;
+ if(!process.exitCode){
+   const result=await call('Runtime.evaluate',{expression:'Promise.race([navigator.serviceWorker.ready.then(()=>true),new Promise(resolve=>setTimeout(()=>resolve(false),20000))])',awaitPromise:true,returnByValue:true});
+   if(!result.result?.result?.value)throw new Error('Offline cache did not install');
+   await call('Page.navigate',{url:`http://127.0.0.1:${port}/`});
+   async function waitForStorage(){for(let i=0;i<150;i++){const value=await call('Runtime.evaluate',{expression:'typeof storageReady!=="undefined"&&storageReady&&data.books.length>=2',returnByValue:true});if(value.result?.result?.value)return;await sleep(100)}throw new Error('Reload lost persisted notebooks')}
+   await waitForStorage();console.log('PASS notebooks survive reload');
+   const restoredTheme=await call('Runtime.evaluate',{expression:'document.documentElement.dataset.theme==="dark"&&preferences.width===7',returnByValue:true});
+   if(!restoredTheme.result?.result?.value)throw new Error('Preferences did not survive reload');console.log('PASS preferences survive reload');
+   if(process.env.SCREENSHOT_DIR){
+     await mkdir(process.env.SCREENSHOT_DIR,{recursive:true});await call('Emulation.setDeviceMetricsOverride',{width:1024,height:1366,deviceScaleFactor:1,mobile:true});
+     const capture=async name=>{const result=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.SCREENSHOT_DIR,name),Buffer.from(result.result.data,'base64'))};
+     await capture('ipad-dark.png');await call('Runtime.evaluate',{expression:'document.getElementById("openSettings").click()'});await capture('ipad-settings.png');await call('Runtime.evaluate',{expression:'document.getElementById("settingsDialog").close();preferences.theme="light";applyPreferences()'});await capture('ipad-light.png');
+   }
+   // Stop the origin server: the next navigation and PDF module load must use the PWA cache.
+   await new Promise(resolve=>server.close(resolve));
+   await call('Network.enable');await call('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
+   await call('Page.navigate',{url:`http://127.0.0.1:${port}/index.html`});await sleep(250);await waitForStorage();
+   const offlinePDF=await call('Runtime.evaluate',{expression:'Documents.pdfjs().then(module=>typeof module.getDocument==="function")',awaitPromise:true,returnByValue:true});
+   if(!offlinePDF.result?.result?.value)throw new Error('PDF library unavailable offline');
+   console.log('PASS PWA and PDF library load offline');
+ }
  await call('Browser.close');
 }finally{ws?.close();browser.kill();server.close()}

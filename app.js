@@ -22,12 +22,12 @@ for(const id of ['theme','buttonSize','toolbarPosition','showSidebar','compact']
   const control=$(id);if(control.type==='checkbox')control.checked=preferences[id];else control.value=preferences[id];
   control.onchange=()=>{preferences[id]=control.type==='checkbox'?control.checked:control.value;applyPreferences();try{localStorage.setItem('notepad-preferences',JSON.stringify(preferences))}catch{}};
 }
-$('openSettings').onclick=()=>{$('paperColor').value=book.paperColor||'white';$('pageSize').value=book.pageSize||'a4';$('settingsDialog').showModal()};
+$('openSettings').onclick=()=>{$('settingsPaper').value=book.paper;$('settingsColor').value=$('color').value;$('settingsWidth').value=$('width').value;$('paperColor').value=book.paperColor||'white';$('pageSize').value=book.pageSize||'a4';$('settingsDialog').showModal()};
 $('closeSettings').onclick=()=>$('settingsDialog').close();
 for(const id of ['paperColor','pageSize'])$(id).onchange=()=>{finish();book[id]=$(id).value;render()};
 applyPreferences();
 const writingControls=document.createElement('div');
-writingControls.innerHTML='<label>Ручка<select id="penType"><option value="regular">Обычная</option><option value="ballpoint">Шариковая</option><option value="gel">Гелевая</option><option value="fountain">Перьевая</option></select></label><label>Сглаживание (0 — выключено)<input id="smoothing" type="range" min="0" max="85" value="35"></label><label>Прозрачность (100 — непрозрачно)<input id="opacity" type="range" min="5" max="100" value="100"></label><label>Ластик<select id="eraserMode"><option value="pixel">Стирать участки</option><option value="stroke">Удалять целый штрих</option></select></label><p class="hint">Цвет и толщина — на панели инструментов. Давление учитывается, когда браузер передаёт его для пера; для пальца толщина постоянная.</p>';
+writingControls.innerHTML='<label>Цвет пера<input type="color" id="settingsColor" value="#222222"></label><label>Толщина пера<input type="range" id="settingsWidth" min="1" max="25" value="3"></label><label>Ручка<select id="penType"><option value="regular">Обычная</option><option value="ballpoint">Шариковая</option><option value="gel">Гелевая</option><option value="fountain">Перьевая</option></select></label><label>Сглаживание (0 — выключено)<input id="smoothing" type="range" min="0" max="85" value="35"></label><label>Прозрачность (100 — непрозрачно)<input id="opacity" type="range" min="5" max="100" value="100"></label><label>Ластик<select id="eraserMode"><option value="pixel">Стирать участки</option><option value="stroke">Удалять целый штрих</option></select></label><p class="hint">Цвет и толщина также доступны на панели инструментов. Давление учитывается, когда браузер передаёт его для пера; для пальца толщина постоянная.</p>';
 $('writingSettings').append(writingControls);
 for(const id of ['penType','smoothing','opacity','color','width','eraserMode']){
   $(id).value=preferences[id];
@@ -51,7 +51,7 @@ function stroke(s){
   ink.setTransform(2,0,0,2,0,0);ink.clearRect(0,0,W,H);ink.fillStyle=s.tool==='eraser'?'#000':s.color;ink.strokeStyle=ink.fillStyle;ink.lineCap='round';ink.lineJoin='round';
   const pts=s.points;
   const factor=s.penType==='ballpoint'?.8:s.penType==='gel'?1.15:1;
-  if(!s.pressure||s.tool!=='pen'){
+  if((!s.pressure&&s.penType!=='fountain')||s.tool!=='pen'){
     ink.lineWidth=s.width*factor;ink.beginPath();ink.moveTo(pts[0].x,pts[0].y);
     if(pts.length===1){ink.lineTo(pts[0].x+.01,pts[0].y+.01)}
     else if(s.smoothing>0){for(let i=1;i<pts.length-1;i++)ink.quadraticCurveTo(pts[i].x,pts[i].y,(pts[i].x+pts[i+1].x)/2,(pts[i].y+pts[i+1].y)/2);ink.lineTo(pts.at(-1).x,pts.at(-1).y)}
@@ -63,7 +63,7 @@ function stroke(s){
       const a=pts[Math.max(0,i-1)],b=pts[i],distance=Math.hypot(b.x-a.x,b.y-a.y);
       const steps=Math.max(1,Math.ceil(distance/Math.max(.5,s.width*.2)));
       for(let step=0;step<=steps;step++){
-        const t=step/steps,p=(a.p??.5)*(1-t)+(b.p??.5)*t;
+        const t=step/steps,p=s.pressure?(a.p??.5)*(1-t)+(b.p??.5)*t:.5;
         const width=s.width*factor*(.35+1.3*p)*(s.penType==='fountain'?(.7+.6*Math.abs(Math.sin(Math.atan2(b.y-a.y,b.x-a.x)))):1);
         ink.beginPath();ink.arc(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,Math.max(.2,width/2),0,Math.PI*2);ink.fill();
       }
@@ -72,12 +72,31 @@ function stroke(s){
   ctx.save();ctx.globalAlpha=(s.opacity??1)*(s.tool==='marker'?.28:1);ctx.globalCompositeOperation=s.tool==='eraser'?'destination-out':'source-over';ctx.drawImage(inkLayer,0,0,W,H);ctx.restore();
 }
 function pointSegmentDistance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy;const t=length?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/length)):0;return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy)}
+function segmentDistance(a,b,c,d){
+  const rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y,denominator=rx*sy-ry*sx;
+  if(denominator){const t=((c.x-a.x)*sy-(c.y-a.y)*sx)/denominator,u=((c.x-a.x)*ry-(c.y-a.y)*rx)/denominator;if(t>=0&&t<=1&&u>=0&&u<=1)return 0}
+  return Math.min(pointSegmentDistance(a,c,d),pointSegmentDistance(b,c,d),pointSegmentDistance(c,a,b),pointSegmentDistance(d,a,b));
+}
 function erasedTargets(eraser,items){return items.flatMap((item,index)=>{
   if(!item.points||item.tool==='eraser'||item.tool==='stroke-eraser')return [];
-  const hit=eraser.points.some(p=>item.points.some((b,i)=>pointSegmentDistance(p,item.points[Math.max(0,i-1)],b)<(eraser.width+item.width)/2));
+  const hit=eraser.points.some((p,j)=>item.points.some((b,i)=>segmentDistance(eraser.points[Math.max(0,j-1)],p,item.points[Math.max(0,i-1)],b)<(eraser.width+item.width)/2));
   return hit?[index]:[];
 })}
-function paint(){ctx.clearRect(0,0,W,H);const items=book.pages[page],hidden=new Set(items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets));if(drawing?.tool==='stroke-eraser')for(const index of erasedTargets(drawing,items))hidden.add(index);for(const [i,s] of items.entries())if(!hidden.has(i)&&s.tool!=='stroke-eraser')stroke(s);if(drawing&&drawing.tool!=='stroke-eraser')stroke(drawing)}
+const committedLayer=document.createElement('canvas');committedLayer.width=canvas.width;committedLayer.height=canvas.height;
+let cachedItems=null,cachedLength=-1,cachedLast=null;
+function paint(){
+  const items=book.pages[page],previewErasure=drawing?.tool==='stroke-eraser';
+  ctx.clearRect(0,0,W,H);
+  if(!previewErasure&&cachedItems===items&&cachedLength===items.length&&cachedLast===items.at(-1)){
+    ctx.drawImage(committedLayer,0,0,W,H);
+  }else{
+    const hidden=new Set(items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets));
+    if(previewErasure)for(const index of erasedTargets(drawing,items))hidden.add(index);
+    for(const [i,s]of items.entries())if(!hidden.has(i)&&s.tool!=='stroke-eraser')stroke(s);
+    if(!previewErasure){const layer=committedLayer.getContext('2d');layer.clearRect(0,0,committedLayer.width,committedLayer.height);layer.drawImage(canvas,0,0);cachedItems=items;cachedLength=items.length;cachedLast=items.at(-1)}
+  }
+  if(drawing&&drawing.tool!=='stroke-eraser')stroke(drawing);
+}
 function render(){renderBooks();$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;
   // Keep the original coordinate system: changing page format never rescales old notes.
   $('page').style.aspectRatio=book.pageSize==='square'?'1':book.pageSize==='a5'?'559 / 794':'794 / 1123';
@@ -87,12 +106,13 @@ function render(){renderBooks();$('bookTitle').textContent=book.name;$('paper').
 function pos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H,p:e.pointerType==='pen'&&e.pressure>0?e.pressure:.5}}
 function appendPoint(e,endpoint=false){
   const point=pos(e),last=drawing.points.at(-1);
+  if(endpoint&&activeType==='pen'&&!e.pressure)point.p=last.p;
   if(!endpoint&&drawing.smoothing>0){const distance=Math.hypot(point.x-last.x,point.y-last.y);const weight=Math.max(1-drawing.smoothing/100,Math.min(1,distance/18));point.x=last.x+(point.x-last.x)*weight;point.y=last.y+(point.y-last.y)*weight;point.p=(last.p??.5)*.3+point.p*.7}
   drawing.points.push(point);
 }
 let activePointer=null,activeType=null,frame=null,strokePage=null;
 const inputModeControl=document.createElement('label');
-inputModeControl.innerHTML='Ввод <select id="inputMode"><option value="any">Любой стилус и палец</option><option value="stylus">Только определяемый стилус</option><option value="pencil">Apple Pencil</option></select>';
+inputModeControl.innerHTML='Ввод <select id="inputMode"><option value="any">Любой стилус и палец</option><option value="stylus">Только стилус, если устройство позволяет его определить</option><option value="pencil">Apple Pencil</option></select>';
 $('toolbar').append(inputModeControl);
 $('writingSettings').append(inputModeControl);
 try{$('inputMode').value=localStorage.getItem('notepad-input-mode')||'any'}catch{}
@@ -154,7 +174,7 @@ $('newBook').onclick=()=>{const name=prompt('Название тетради:','
 $('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};$('toggleSidebar').onclick=()=>{if(!preferences.showSidebar){preferences.showSidebar=true;$('showSidebar').checked=true;applyPreferences()}$('sidebar').classList.toggle('open')};
 
 
-let backgroundToken=0,backgroundURL=null;
+let backgroundToken=0,backgroundURL=null,backgroundId=null;
 function insertTextPages(text){
   finish();const lines=[];
   for(const paragraph of text.split('\n')){let line='';for(const word of paragraph.split(/\s+/)){if((line+' '+word).length>68){lines.push(line);line=word}else line+=(line?' ':'')+word}lines.push(line)}
@@ -163,10 +183,13 @@ function insertTextPages(text){
   page=first;redo=[];render();
 }
 async function updateBackground(){
-  const token=++backgroundToken,background=book.backgrounds?.[page],element=$('pageBackground');
+  const background=book.backgrounds?.[page],element=$('pageBackground');
+  if(backgroundId===(background?.id||null))return;
+  backgroundId=background?.id||null;
+  const token=++backgroundToken;
   element.hidden=true;if(backgroundURL){URL.revokeObjectURL(backgroundURL);backgroundURL=null}
   if(!background)return;
-  try{const value=await NotepadStore.asset(background.id);if(token!==backgroundToken)return;if(!value)throw new Error('Нет фона');backgroundURL=URL.createObjectURL(value);element.src=backgroundURL;element.hidden=false}catch{if(token===backgroundToken)$('saveStatus').textContent='Не удалось загрузить фон документа'}
+  try{const value=await NotepadStore.asset(background.id);if(token!==backgroundToken)return;if(!value)throw new Error('Нет фона');backgroundURL=URL.createObjectURL(value);element.src=backgroundURL;element.hidden=false}catch{if(token===backgroundToken){backgroundId=null;$('saveStatus').textContent='Не удалось загрузить фон документа'}}
 }
 $('importFile').onclick=()=>$('fileInput').click();
 $('fileInput').onchange=async e=>{
@@ -175,9 +198,9 @@ $('fileInput').onchange=async e=>{
   finish();const dialog=document.createElement('dialog');dialog.textContent='Импорт документа…';document.body.append(dialog);dialog.showModal();dialog.oncancel=e=>e.preventDefault();
   try{
     const result=await Documents.importFile(file,message=>dialog.textContent=message);
-    await NotepadStore.putAssets(result.assets);
+
     // Commit the new library only after every background has been stored.
-    const next={...data,books:[...data.books,result.book],selected:result.book.id};await NotepadStore.write(next);data=next;page=0;redo=[];render();
+    const next={...data,books:[...data.books,result.book],selected:result.book.id};await NotepadStore.write(next,result.assets);data=next;page=0;redo=[];render();
   }catch(error){alert('Импорт не выполнен: '+error.message)}finally{dialog.close();dialog.remove()}
 };
 $('exportPdf').onclick=async()=>{
@@ -185,19 +208,51 @@ $('exportPdf').onclick=async()=>{
   const win=window.open('','_blank');if(!win){alert('Разрешите всплывающие окна для экспорта PDF');return}
   win.document.title='Экспорт тетради';win.document.body.textContent='Подготовка страниц…';
   try{
-    const style=win.document.createElement('style');style.textContent='@page{size:A4;margin:0}body{margin:0;background:white}img{display:block;width:100%;height:100vh;object-fit:contain;break-after:page}img:last-child{break-after:auto}';win.document.head.append(style);
+    const style=win.document.createElement('style');const size=notebook.pageSize==='a5'?'A5':notebook.pageSize==='square'?'210mm 210mm':'A4';style.textContent=`@page{size:${size};margin:0}body{margin:0;background:white}img{display:block;width:100%;height:100vh;object-fit:contain;break-after:page}img:last-child{break-after:auto}`;win.document.head.append(style);
     const images=[];for(let i=0;i<notebook.pages.length;i++){const target=await Documents.compose(notebook,i);const img=win.document.createElement('img');img.src=target.toDataURL('image/png');images.push(img)}
     win.document.body.replaceChildren(...images);await Promise.all(images.map(img=>img.decode()));win.focus();win.print();
   }catch(error){if(!win.closed)win.document.body.textContent='Ошибка экспорта: '+error.message}
 };
 const ready=(async()=>{
-  document.querySelector('main').inert=true;
+  $('app').inert=true;
   try{
     await NotepadStore.open();const stored=await NotepadStore.read();
-    if(stored?.books?.length)data=stored;
-    else await NotepadStore.write(data);
+    if(stored?.books?.length)data=Backups.validateLibrary(stored);
+    else await NotepadStore.write(Backups.validateLibrary(data));
     storageReady=true;
   }catch{storageFailed=true;$('saveStatus').textContent='Хранилище недоступно — экспортируйте записи';}
-  render();if(!storageReady)$('saveStatus').textContent='Хранилище недоступно — записи не сохраняются';document.querySelector('main').inert=false;
+  render();if(!storageReady)$('saveStatus').textContent='Хранилище недоступно — записи не сохраняются';$('app').inert=false;
 })();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+async function storageInformation(){
+  try{
+    if(!navigator.storage?.estimate){$('storageInfo').textContent='Браузер не сообщает объём хранилища';return}
+    const estimate=await navigator.storage.estimate(),persisted=await navigator.storage.persisted?.();
+    const mb=bytes=>(Number(bytes||0)/1024/1024).toFixed(1);
+    $('storageInfo').textContent=`Используется ${mb(estimate.usage)} МБ из ${mb(estimate.quota)} МБ (включая кэш). ${persisted?'Долговременное хранение разрешено.':'Храните резервные копии в Файлах: браузер может освобождать место.'}`;
+  }catch{$('storageInfo').textContent='Не удалось получить сведения о хранилище'}
+  $('requestPersistence').hidden=!navigator.storage?.persist;
+}
+$('openSettings').addEventListener('click',storageInformation);
+$('requestPersistence').onclick=async()=>{try{const granted=await navigator.storage.persist();if(!granted)alert('Браузер не предоставил долговременное хранение. Экспортируйте резервные копии.');await storageInformation()}catch{alert('Долговременное хранение недоступно')}};
+$('exportBackup').onclick=async()=>{
+  finish();const button=$('exportBackup');button.disabled=true;
+  try{
+    const value=await Backups.create(data,preferences),blob=new Blob([JSON.stringify(value)],{type:'application/json'}),url=URL.createObjectURL(blob);
+    const link=document.createElement('a');link.href=url;link.download='my-notepad-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }catch(error){alert('Не удалось создать полную копию: '+error.message)}finally{button.disabled=false}
+};
+$('importBackup').onclick=()=>$('backupInput').click();
+$('backupInput').onchange=async e=>{
+  const file=e.target.files[0];e.target.value='';if(!file)return;
+  if(!storageReady){alert('Хранилище недоступно. Восстановление остановлено.');return}
+  finish();const button=$('importBackup');button.disabled=true;
+  const busy=document.createElement('dialog');busy.textContent='Проверка резервной копии…';document.body.append(busy);busy.showModal();busy.oncancel=e=>e.preventDefault();
+  try{
+    if(file.size>250*1024*1024)throw new Error('Размер копии превышает 250 МБ');
+    const backup=await Backups.parse(await file.text());
+    data=await Backups.merge(data,backup);page=0;redo=[];render();await storageInformation();
+  }catch(error){alert('Копия не импортирована: '+error.message)}finally{button.disabled=false;busy.close();busy.remove()}
+};
+for(const [source,target]of [['settingsColor','color'],['settingsWidth','width']])$(source).oninput=()=>{$(target).value=$(source).value;$(target).dispatchEvent(new Event('input'))};
+$('settingsPaper').onchange=()=>{book.paper=$('settingsPaper').value;render()};
