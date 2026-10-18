@@ -99,7 +99,17 @@ importedPdf.book.pages[0].push({tool:'pen',color:'#ff0000',width:8,points:[{x:10
 const composed=await Documents.compose(importedPdf.book,0);check('annotated export contains ink',composed.getContext('2d').getImageData(150,100,1,1).data[0]===255);
 check('document export restores editor',book.id===data.selected&&page===1);
 importedPdf.book.pageSize='square';check('square export matches page format',(await Documents.compose(importedPdf.book,0)).height===W);delete importedPdf.book.pageSize;
-await AIAssistant.connect();check('AI honestly disconnected',$('aiStatus').textContent.includes('ИИ не подключён')&&$('sendAI').disabled);
+await AIAssistant.connect();check('AI honestly disconnected',$('aiStatus').textContent.includes('Василий пока не подключён')&&$('sendAI').disabled);
+check('Vasily name and setup',$('aiTitle').textContent==='Василий'&&$('aiSetup').textContent.includes('ChatGPT Plus'));
+let unsafeEndpoints=0;for(const url of ['https://api.openai.com/v1/responses','https://user:password@example.com/api','https://example.com/api?token=secret','http://example.com/api'])try{AIAssistant.validateEndpoint(url)}catch{unsafeEndpoints++}check('Vasily rejects secret-bearing and insecure endpoints',unsafeEndpoints===4);
+check('Vasily has four quick actions',document.querySelectorAll('[data-prompt]').length===4);
+const realFetch=window.fetch;let sentPayload;
+window.fetch=async(url,options)=>url.endsWith('/status')?{ok:true,json:async()=>({connected:true})}:{ok:true,json:async()=>({text:'Проверочный ответ'}),...((sentPayload=JSON.parse(options.body)),{})};
+$('aiEndpoint').value='https://notes.example/api/assistant';await $('aiConnectionForm').onsubmit({preventDefault(){}});check('Vasily server connection verified',!$('sendAI').disabled);
+$('chatInput').value='Объясни тему';await $('chatForm').onsubmit({preventDefault(){}});check('Vasily response and private defaults',$('chatMessages').textContent.includes('Проверочный ответ')&&!sentPayload.pageImage&&!sentPayload.documentText);
+window.fetch=async()=>({ok:false,status:429});$('chatInput').value='Повтори';await $('chatForm').onsubmit({preventDefault(){}});check('Vasily quota error preserves question',$('aiStatus').textContent.includes('Лимит')&&$('chatInput').value==='Повтори');
+window.fetch=async(url,options)=>new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError'))));const cancelledRequest=$('chatForm').onsubmit({preventDefault(){}});$('cancelAI').click();await cancelledRequest;check('Vasily request can be stopped',$('aiStatus').textContent.includes('остановлен')&&$('cancelAI').hidden);
+window.fetch=realFetch;$('resetAIEndpoint').click();await AIAssistant.connect();$('chatInput').value='';
 const beforeText=book.pages.length;insertTextPages('Ответ помощника\nПояснение решения');check('AI insertion appends new page',book.pages.length===beforeText+1&&book.pages.at(-1)[0].type==='text');
 check('AI text rendered',ctx.getImageData(30,30,1480,150).data.some(value=>value>0));
 const fixtureStroke={tool:'pen',color:'#222222',width:3,points:[{x:0,y:50},{x:100,y:50}]};
