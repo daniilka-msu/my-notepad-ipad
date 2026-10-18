@@ -34,7 +34,13 @@ for(const id of ['penType','smoothing','opacity','color','width','eraserMode']){
   $(id).oninput=()=>{preferences[id]=['smoothing','opacity','width'].includes(id)?Number($(id).value):$(id).value;try{localStorage.setItem('notepad-preferences',JSON.stringify(preferences))}catch{}};
 }
 canvas.width=W*2;canvas.height=H*2;ctx.scale(2,2);
-function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){alert('Память браузера заполнена. Экспортируйте записи в PDF.')}}
+let storageReady=false,storageFailed=false;
+function save(){
+  if(!storageReady)return Promise.resolve();
+  $('saveStatus').textContent='Сохранение…';
+  return NotepadStore.write(data).then(()=>{$('saveStatus').textContent='Сохранено на устройстве'},()=>{storageFailed=true;$('saveStatus').textContent='Не сохранено — сделайте резервную копию';return Promise.reject(new Error('Не удалось сохранить тетрадь. Проверьте свободное место.'))});
+}
+function autosave(){save().catch(()=>{})}
 function selected(){book=data.books.find(b=>b.id===data.selected)||data.books[0];data.selected=book.id;page=Math.min(page,book.pages.length-1)}
 function renderBooks(){selected();$('books').replaceChildren();for(const b of data.books){const el=document.createElement('button');el.className='book'+(b.id===book.id?' selected':'');el.textContent='📓 '+b.name;el.onclick=()=>{data.selected=b.id;page=0;redo=[];render();$('sidebar').classList.remove('open')};$('books').append(el)}}
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
@@ -77,7 +83,7 @@ function render(){renderBooks();$('bookTitle').textContent=book.name;$('paper').
   $('page').style.aspectRatio=book.pageSize==='square'?'1':book.pageSize==='a5'?'559 / 794':'794 / 1123';
   $('page').style.setProperty('--paper',paperColors[book.paperColor]||paperColors.white);
   $('page').style.setProperty('--rule',['gray','black'].includes(book.paperColor)?'#596273':'#dce7f6');
-  $('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();save()}
+  $('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();updateBackground();autosave()}
 function pos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H,p:e.pointerType==='pen'&&e.pressure>0?e.pressure:.5}}
 function appendPoint(e,endpoint=false){
   const point=pos(e),last=drawing.points.at(-1);
@@ -145,6 +151,46 @@ document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.tool
 $('undo').onclick=()=>{const s=book.pages[page].pop();if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s)book.pages[page].push(s);render()};
 $('clear').onclick=()=>{if(confirm('Очистить текущую страницу?')){book.pages[page]=[];redo=[];render()}};
 $('newBook').onclick=()=>{const name=prompt('Название тетради:','Новая тетрадь');if(!name?.trim())return;const b={id:uid(),name:name.trim(),paper:'grid',pages:[[]]};data.books.push(b);data.selected=b.id;page=0;redo=[];render()};
-$('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};$('toggleSidebar').onclick=()=>{if(!preferences.showSidebar){preferences.showSidebar=true;$('showSidebar').checked=true;applyPreferences()}$('sidebar').classList.toggle('open')};
-$('exportPdf').onclick=()=>{const old=page;const imgs=[];for(let i=0;i<book.pages.length;i++){page=i;paint();const tmp=document.createElement('canvas');tmp.width=W;tmp.height=H;const c=tmp.getContext('2d');c.fillStyle=paperColors[book.paperColor]||paperColors.white;c.fillRect(0,0,W,H);if(book.paper!=='blank'){c.strokeStyle=['gray','black'].includes(book.paperColor)?'#596273':'#dce7f6';c.lineWidth=1;if(book.paper==='grid'){for(let x=0;x<W;x+=24){c.beginPath();c.moveTo(x,0);c.lineTo(x,H);c.stroke()}}for(let y=0;y<H;y+=book.paper==='grid'?24:32){c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke()}}c.drawImage(canvas,0,0,W,H);imgs.push(tmp.toDataURL('image/png'))}page=old;paint();const win=window.open('','_blank');if(!win){alert('Разрешите всплывающие окна для экспорта');return}win.document.write('<html><head><title>Экспорт тетради</title><style>@page{size:A4;margin:0}body{margin:0}img{display:block;width:100%;height:100vh;object-fit:contain;break-after:page}</style></head><body>'+imgs.map(s=>`<img src="${s}">`).join('')+'<script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>');win.document.close()};
-render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+$('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};$('toggleSidebar').onclick=()=>{if(!preferences.showSidebar){preferences.showSidebar=true;$('showSidebar').checked=true;applyPreferences()}$('sidebar').classList.toggle('open')};
+
+
+let backgroundToken=0,backgroundURL=null;
+async function updateBackground(){
+  const token=++backgroundToken,background=book.backgrounds?.[page],element=$('pageBackground');
+  element.hidden=true;if(backgroundURL){URL.revokeObjectURL(backgroundURL);backgroundURL=null}
+  if(!background)return;
+  try{const value=await NotepadStore.asset(background.id);if(token!==backgroundToken)return;if(!value)throw new Error('Нет фона');backgroundURL=URL.createObjectURL(value);element.src=backgroundURL;element.hidden=false}catch{if(token===backgroundToken)$('saveStatus').textContent='Не удалось загрузить фон документа'}
+}
+$('importFile').onclick=()=>$('fileInput').click();
+$('fileInput').onchange=async e=>{
+  const file=e.target.files[0];e.target.value='';if(!file)return;
+  if(!storageReady){alert('Хранилище не готово. Импорт недоступен.');return}
+  finish();const dialog=document.createElement('dialog');dialog.textContent='Импорт документа…';document.body.append(dialog);dialog.showModal();dialog.oncancel=e=>e.preventDefault();
+  try{
+    const result=await Documents.importFile(file,message=>dialog.textContent=message);
+    await NotepadStore.putAssets(result.assets);
+    // Commit the new library only after every background has been stored.
+    const next={...data,books:[...data.books,result.book],selected:result.book.id};await NotepadStore.write(next);data=next;page=0;redo=[];render();
+  }catch(error){alert('Импорт не выполнен: '+error.message)}finally{dialog.close();dialog.remove()}
+};
+$('exportPdf').onclick=async()=>{
+  finish();const notebook=book;
+  const win=window.open('','_blank');if(!win){alert('Разрешите всплывающие окна для экспорта PDF');return}
+  win.document.title='Экспорт тетради';win.document.body.textContent='Подготовка страниц…';
+  try{
+    const style=win.document.createElement('style');style.textContent='@page{size:A4;margin:0}body{margin:0;background:white}img{display:block;width:100%;height:100vh;object-fit:contain;break-after:page}img:last-child{break-after:auto}';win.document.head.append(style);
+    const images=[];for(let i=0;i<notebook.pages.length;i++){const target=await Documents.compose(notebook,i);const img=win.document.createElement('img');img.src=target.toDataURL('image/png');images.push(img)}
+    win.document.body.replaceChildren(...images);await Promise.all(images.map(img=>img.decode()));win.focus();win.print();
+  }catch(error){if(!win.closed)win.document.body.textContent='Ошибка экспорта: '+error.message}
+};
+const ready=(async()=>{
+  document.querySelector('main').inert=true;
+  try{
+    await NotepadStore.open();const stored=await NotepadStore.read();
+    if(stored?.books?.length)data=stored;
+    else await NotepadStore.write(data);
+    storageReady=true;
+  }catch{storageFailed=true;$('saveStatus').textContent='Хранилище недоступно — экспортируйте записи';}
+  render();if(!storageReady)$('saveStatus').textContent='Хранилище недоступно — записи не сохраняются';document.querySelector('main').inert=false;
+})();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
