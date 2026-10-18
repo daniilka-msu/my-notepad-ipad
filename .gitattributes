@@ -1,1 +1,4 @@
 vendor/** -text
+# Preserve upstream license line endings and legal-comment whitespace.
+vendor/echarts/LICENSE-tslib whitespace=cr-at-eol
+vendor/echarts/echarts.min.js whitespace=-blank-at-eol

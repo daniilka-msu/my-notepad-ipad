@@ -1,0 +1,32 @@
+[
+  {
+    "name": "echarts",
+    "version": "6.1.0",
+    "tarball": "https://registry.npmjs.org/echarts/-/echarts-6.1.0.tgz",
+    "integrity": "sha512-q0yaFPggC9FUdsWH4blavRWFmxdrIodbkoKNAjJudAI6CA9gNPxHtV2RcZNEepZVlk4yvBYkOkbk6HIVpIyHZA=="
+  },
+  {
+    "name": "zrender",
+    "version": "6.1.0",
+    "tarball": "https://registry.npmjs.org/zrender/-/zrender-6.1.0.tgz",
+    "integrity": "sha512-oEGMDB6pOP2S6OwRR4PdVv610zrjnA3Bh+JnSG12fYJlBKjtNAoEb5fSUoCOOINlH96I2fU38/A2UpRKs67xYQ=="
+  },
+  {
+    "name": "tslib",
+    "version": "2.3.0",
+    "tarball": "https://registry.npmjs.org/tslib/-/tslib-2.3.0.tgz",
+    "integrity": "sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg=="
+  },
+  {
+    "name": "esbuild",
+    "version": "0.25.12",
+    "tarball": "https://registry.npmjs.org/esbuild/-/esbuild-0.25.12.tgz",
+    "integrity": "sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg=="
+  },
+  {
+    "name": "@esbuild/win32-x64",
+    "version": "0.25.12",
+    "tarball": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.25.12.tgz",
+    "integrity": "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="
+  }
+]

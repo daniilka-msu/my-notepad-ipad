@@ -9,7 +9,7 @@ const MathExpression = (() => {
     function primary(){if(++depth>40)throw new Error('Слишком глубокая вложенность');let result;
       if(token.type==='number'){result=node({value:token.value});next()}
       else if(token.type==='('){next();result=sum();take(')')}
-      else if(token.type==='name'){const name=token.value;next();if(name==='x')result=node({name});else if(name==='pi'||name==='e')result=node({value:name==='pi'?Math.PI:Math.E});else{const fn=functions[name];if(!fn)throw new Error('Неизвестное имя: '+name);take('(');const args=[sum()];while(token.type===','){next();args.push(sum())}take(')');if(args.length!==fn[0])throw new Error('Неверное число аргументов: '+name);result=node({fn:fn[1],args})}}
+      else if(token.type==='name'){const name=token.value;next();if(name==='x')result=node({name});else if(name==='pi'||name==='e')result=node({value:name==='pi'?Math.PI:Math.E});else{const fn=Object.hasOwn(functions,name)?functions[name]:null;if(!fn)throw new Error('Неизвестное имя: '+name);take('(');const args=[sum()];while(token.type===','){next();args.push(sum())}take(')');if(args.length!==fn[0])throw new Error('Неверное число аргументов: '+name);result=node({fn:fn[1],args})}}
       else throw new Error('Ожидается число, x или функция');depth--;return result;
     }
     function power(){let left=primary();if(token.type==='^'){next();left=node({op:'^',left,right:unary()})}return left}

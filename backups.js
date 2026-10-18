@@ -23,7 +23,7 @@ const Backups=(()=>{
         if(s.type==='chart-object'){if(!Charts.valid(s))throw new Error('Повреждена диаграмма');continue}
         if(s.type==='image-object'){if(!ImageObjects.valid(s))throw new Error('Повреждено изображение');continue}
         if(s.type==='object-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!['image-object','chart-object'].includes(items[s.target].type)||(s.value!==null&&(s.value.type!==items[s.target].type||!(s.value.type==='image-object'?ImageObjects.valid(s.value):Charts.valid(s.value)))))throw new Error('Повреждено изменение объекта');continue}
-        if(s.type==='object-order'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||items[s.target].type!=='image-object'||!['front','back'].includes(s.placement))throw new Error('Повреждён порядок объектов');continue}
+        if(s.type==='object-order'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!['image-object','chart-object'].includes(items[s.target].type)||!['front','back'].includes(s.placement))throw new Error('Повреждён порядок объектов');continue}
         if(!validBrush(s))throw new Error('Поврежден инструмент письма');
         if(s.shapeVersion===1&&!validShape(s))throw new Error('Повреждена фигура');
         if(s.type==='text'){if(typeof s.text!=='string'||s.text.length>100000||typeof s.color!=='string'||!/^#[0-9a-f]{6}$/i.test(s.color))throw new Error('Повреждён текст');continue}
