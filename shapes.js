@@ -28,8 +28,8 @@ const Shapes = (() => {
     return result.map(p=>({x:p.x,y:p.y/scale,p:.5}));
   }
   function resolve(items, includePreview=true) {
-    const result=items.map(s=>s.type==='shape-edit'?null:s);
-    for(const entry of items)if(entry.type==='shape-edit')result[entry.target]=entry.value;
+    const result=items.map(s=>['shape-edit','text-edit'].includes(s.type)?null:s);
+    for(const entry of items)if(['shape-edit','text-edit'].includes(entry.type))result[entry.target]=entry.value;
     if(includePreview&&preview?.items===items)result[preview.index]=preview.value;
     return result;
   }

@@ -1,4 +1,4 @@
-import {verifyShapeUI,verifyBrushUI} from './interaction.mjs';
+import {verifyShapeUI,verifyBrushUI,verifyTextUI} from './interaction.mjs';
 ﻿import http from 'node:http';
 import {readFile,writeFile,mkdtemp,mkdir} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
@@ -9,7 +9,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const index=await readFile(resolve(root,'index.html'),'utf8');
 const tests=await readFile(resolve(root,'tests/critical.js'),'utf8');
 const legacySeed='<script>localStorage.setItem("ipad-notebooks-v1",JSON.stringify({selected:"legacy",books:[{id:"legacy",name:"Старый конспект",paper:"grid",pages:[[{tool:"pen",color:"#222222",width:3,points:[{x:20,y:20},{x:30,y:30}]}]]}]}));</script>';
-const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/interface.js"></script><script src="tests/paper.js"></script><script src="tests/shapes.js"></script><script src="tests/brushes.js"></script><script src="tests/critical.js"></script>');
+const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/interface.js"></script><script src="tests/paper.js"></script><script src="tests/shapes.js"></script><script src="tests/brushes.js"></script><script src="tests/text.js"></script><script src="tests/critical.js"></script>');
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.wasm':'application/wasm','.svg':'image/svg+xml','.pdf':'application/pdf'};
 const server=http.createServer(async(req,res)=>{
  try{
@@ -75,6 +75,7 @@ try{
    }
    await verifyShapeUI(call);
    await verifyBrushUI(call);
+   await verifyTextUI(call,process.env.SCREENSHOT_DIR?async name=>{await mkdir(process.env.SCREENSHOT_DIR,{recursive:true});await sleep(250);const image=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.SCREENSHOT_DIR,name),Buffer.from(image.result.data,'base64'))}:null);
    await call('Runtime.evaluate',{expression:'save()',awaitPromise:true,returnByValue:true});
    if(process.env.SCREENSHOT_DIR){
      await mkdir(process.env.SCREENSHOT_DIR,{recursive:true});await call('Emulation.setDeviceMetricsOverride',{width:1024,height:1366,deviceScaleFactor:1,mobile:true});
@@ -84,13 +85,14 @@ try{
      await call('Emulation.setDeviceMetricsOverride',{width:512,height:1024,deviceScaleFactor:1,mobile:true});await capture('split-view.png');await call('Runtime.evaluate',{expression:'document.getElementById("toggleSidebar").click()'});await capture('split-library.png');await call('Runtime.evaluate',{expression:'Sidebar.close()'});await call('Emulation.setDeviceMetricsOverride',{width:1024,height:768,deviceScaleFactor:1,mobile:true});await call('Runtime.evaluate',{expression:'document.getElementById("toggleSidebar").click()'});await capture('landscape-library.png');await call('Runtime.evaluate',{expression:'Sidebar.close()'});
    }
    // Stop the origin server: the next navigation and PDF module load must use the PWA cache.
-   await new Promise(resolve=>server.close(resolve));
+   await new Promise(resolve=>{server.close(resolve);server.closeAllConnections()});
    await call('Network.enable');await call('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
    await call('Page.navigate',{url:`http://127.0.0.1:${port}/index.html`});await sleep(250);await waitForStorage();
    const offlinePDF=await call('Runtime.evaluate',{expression:'Documents.pdfjs().then(module=>typeof module.getDocument==="function")',awaitPromise:true,returnByValue:true});
    if(!offlinePDF.result?.result?.value)throw new Error('PDF library unavailable offline');
    const shapeRoundTrip=await call('Runtime.evaluate',{expression:'(async()=>{const b=data.books.find(b=>b.id==="shape-gallery"),expected=JSON.parse(localStorage.getItem("test-shapes-export"));for(let i=0;i<b.pages.length;i++)if((await Documents.compose(b,i)).toDataURL()!==expected[i])return false;return true})()',awaitPromise:true,returnByValue:true});if(!shapeRoundTrip.result?.result?.value)throw new Error('Shape reopening or export changed');console.log('PASS all shapes reopen and export offline');
    const brushRoundTrip=await call('Runtime.evaluate',{expression:'(async()=>{const b=data.books.find(b=>b.id==="brush-gallery"),expected=JSON.parse(localStorage.getItem("test-brushes-export"));for(let i=0;i<b.pages.length;i++)if((await Documents.compose(b,i)).toDataURL()!==expected[i])return false;return true})()',awaitPromise:true,returnByValue:true});if(!brushRoundTrip.result?.result?.value)throw new Error('Brush reopening or export changed');console.log('PASS all brushes reopen and export offline');
+   const textRoundTrip=await call('Runtime.evaluate',{expression:'(async()=>{const b=data.books.find(b=>b.id==="text-gallery");data.selected=b.id;page=0;render();Editor.choose("textBlock");const text=Shapes.resolve(b.pages[0],false)[0],r=canvas.getBoundingClientRect();for(const type of ["pointerdown","pointerup"])canvas.dispatchEvent(new PointerEvent(type,{pointerId:1900,pointerType:"pen",button:0,clientX:r.left+(text.x+5)/W*r.width,clientY:r.top+(text.y+5)/H*r.height,bubbles:true,cancelable:true}));document.getElementById("editText").click();const editable=document.getElementById("textDialog").open&&document.getElementById("textContent").value===text.text;document.getElementById("closeText").click();return editable&&(await Documents.compose(b,0)).toDataURL()===localStorage.getItem("test-text-export")})()',awaitPromise:true,returnByValue:true});if(!textRoundTrip.result?.result?.value)throw new Error('Text reopening or export changed');console.log('PASS editable text reopens and exports offline');
    console.log('PASS PWA and PDF library load offline');
    const offlinePaper=await call('Runtime.evaluate',{expression:'(async()=>{const b=data.books.find(b=>b.id==="paper-persist");return (await Documents.compose(b,0)).toDataURL()===localStorage.getItem("test-paper-export")})()',awaitPromise:true,returnByValue:true});if(!offlinePaper.result?.result?.value)throw new Error('Paper unavailable offline');console.log('PASS grid and annotated export work offline');
    const offlineUI=await call('Runtime.evaluate',{expression:'(()=>{document.getElementById("toggleSidebar").click();const ok=Sidebar.open&&!!document.querySelector("#toggleSidebar svg");Sidebar.close();return ok})()',returnByValue:true});if(!offlineUI.result?.result?.value)throw new Error('Redesigned UI unavailable offline');console.log('PASS library and SVG icons work offline');

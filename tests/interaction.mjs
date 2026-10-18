@@ -27,3 +27,19 @@ export async function verifyBrushUI(call){
   await click('#undo');if(await evaluate('JSON.stringify(book.pages[page])')!==original)throw new Error('Pencil UI undo did not restore page');
   console.log('PASS real mouse UI selects pencil, draws and undoes a textured stroke');
 }
+export async function verifyTextUI(call,capture){
+  const {evaluate,click,drag}=driver(call);
+  await click('#toggleSidebar');await evaluate('document.querySelectorAll(".book").forEach(b=>{if(b.textContent.includes("Текст 2.1"))b.id="testTextGalleryButton"})');await click('#testTextGalleryButton');await click('#fitPage');
+  const original=await evaluate('JSON.stringify(book.pages[page])');
+  await click('#extraTools summary');await click('#textTool');
+  await drag({x:100,y:600},{x:100,y:600});if(!await evaluate('document.getElementById("textDialog").open'))throw new Error('Text tap did not open native editor');
+  await call('Input.insertText',{text:'Настоящий ввод с клавиатуры'});await click('#saveText');
+  if(!await evaluate('book.pages[page].at(-1).text==="Настоящий ввод с клавиатуры"'))throw new Error('Keyboard input was not stored');
+  await drag({x:110,y:610},{x:150,y:660});if(!await evaluate('Math.abs(TextTools.current().x-140)<1'))throw new Error('Text UI drag failed');
+  await click('#editText');await call('Input.insertText',{text:' Продолжение'});await click('#saveText');
+  if(!await evaluate('TextTools.current().text.includes("Продолжение")'))throw new Error('Text UI editing failed');
+  if(capture){await capture('text-page.png');await click('#editText');await capture('text-editor.png');await click('#closeText')}
+  await click('#deleteText');await click('#undo');await click('#undo');await click('#undo');await click('#undo');
+  if(await evaluate('JSON.stringify(book.pages[page])')!==original)throw new Error('Text UI undo did not restore original');
+  console.log('PASS text tool accepts keyboard input, moves, edits, deletes and undoes through real UI');
+}

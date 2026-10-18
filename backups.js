@@ -18,6 +18,8 @@ const Backups=(()=>{
       for(const items of b.pages){if(!Array.isArray(items))throw new Error('Повреждена страница');for(const [index,s]of items.entries()){
         if(!isObject(s))throw new Error('Повреждён штрих');
         if(s.type==='shape-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!items[s.target].shape||(s.value!==null&&!validShape(s.value)))throw new Error('Повреждено изменение фигуры');continue}
+        if(s.type==='text-block'){if(!TextBlocks.valid(s))throw new Error('Повреждён текстовый блок');continue}
+        if(s.type==='text-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||items[s.target].type!=='text-block'||(s.value!==null&&!TextBlocks.valid(s.value)))throw new Error('Повреждено изменение текста');continue}
         if(!validBrush(s))throw new Error('Поврежден инструмент письма');
         if(s.shapeVersion===1&&!validShape(s))throw new Error('Повреждена фигура');
         if(s.type==='text'){if(typeof s.text!=='string'||s.text.length>100000||typeof s.color!=='string'||!/^#[0-9a-f]{6}$/i.test(s.color))throw new Error('Повреждён текст');continue}

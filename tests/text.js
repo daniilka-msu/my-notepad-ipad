@@ -1,0 +1,25 @@
+async function runTextTests(check) {
+  const originalBook=book,originalPage=page;
+  const gallery={id:'text-gallery',name:'Текст 2.1',paper:'grid',pages:[[]]};data.books.push(gallery);data.selected=gallery.id;page=0;render();PageView.fit();
+  function pointer(type,id,p,target=canvas){const r=canvas.getBoundingClientRect();target.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType:'touch',clientX:r.left+p.x/W*r.width,clientY:r.top+p.y/H*r.height,button:0,buttons:type==='pointerup'?0:1,bubbles:true,cancelable:true}))}
+  $('textTool').click();
+  $('inputMode').value='pencil';pointer('pointerdown',1398,{x:80,y:100});pointer('pointerup',1398,{x:80,y:100});check('text respects Pencil-only mode',!$('textDialog').open&&gallery.pages[0].length===0);$('inputMode').value='any';
+  pointer('pointerdown',1396,{x:100,y:100});pointer('pointerdown',1397,{x:200,y:100});pointer('pointermove',1397,{x:240,y:100});pointer('pointerup',1396,{x:100,y:100});pointer('pointerup',1397,{x:240,y:100});check('text tap does not open during pinch',!$('textDialog').open&&gallery.pages[0].length===0);PageView.fit();
+  pointer('pointerdown',1400,{x:80,y:100});pointer('pointerup',1400,{x:80,y:100});check('text editor opens from page tap',$('textDialog').open&&document.activeElement===$('textContent'));
+  $('textContent').value='Текст с клавиатуры\nМатематика: x² + y² = 1. Длинная строка с переносом.';$('textFont').value='Georgia';$('textSize').value='28';$('textBold').checked=true;$('textItalic').checked=true;$('textAlign').value='center';$('saveText').click();
+  const first=structuredClone(gallery.pages[0][0]);check('editable text stores formatting',TextBlocks.valid(first)&&first.bold&&first.italic&&first.font==='Georgia'&&first.align==='center'&&drawing===null);
+  check('text wraps and preserves newline',TextBlocks.layout(first).lines.length>2);check('long words wrap',TextBlocks.layout({...first,width:40,text:'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}).lines.length>3);
+  $('undo').click();check('text creation undo',gallery.pages[0].length===0);$('redo').click();check('text creation redo',JSON.stringify(gallery.pages[0][0])===JSON.stringify(first));
+  for(const zoom of [.5,1,2.5]){PageView.setZoom(zoom);const old=Shapes.resolve(gallery.pages[0],false)[0];pointer('pointerdown',1401,{x:old.x+10,y:old.y+10});pointer('pointermove',1401,{x:old.x+30,y:old.y+40});pointer('pointerup',1401,{x:old.x+30,y:old.y+40});const changed=Shapes.resolve(gallery.pages[0],false)[0];check('text coordinates stable at zoom '+zoom,Math.abs(changed.x-old.x-20)<.01&&Math.abs(changed.y-old.y-30)<.01);$('undo').click()}
+  pointer('pointerdown',1402,{x:90,y:110});pointer('pointerup',1402,{x:90,y:110});
+  pointer('pointerdown',1403,{x:400,y:180},$('resizeText'));pointer('pointermove',1403,{x:240,y:180});pointer('pointerup',1403,{x:240,y:180});check('text width resize reflows',Math.abs(TextTools.current().width-160)<.01&&TextBlocks.layout(TextTools.current()).lines.length>TextBlocks.layout(first).lines.length);
+  $('editText').click();check('text reopens editable',$('textContent').value===first.text);$('textContent').value+='\nСохранено';$('textFont').value='Times New Roman';$('saveText').click();check('text content edits saved',TextTools.current().text.endsWith('Сохранено')&&TextTools.current().font==='Times New Roman');
+  const snapshot=JSON.stringify(gallery.pages[0]);pointer('pointerdown',1404,{x:90,y:110});pointer('pointermove',1404,{x:200,y:220});pointer('pointercancel',1404,{x:200,y:220});check('cancel text drag preserves data',JSON.stringify(gallery.pages[0])===snapshot);
+  $('deleteText').click();check('text deletion',Shapes.resolve(gallery.pages[0],false)[0]===null);$('undo').click();check('text deletion undo',Shapes.resolve(gallery.pages[0],false)[0].text.endsWith('Сохранено'));
+  for(const font of Object.keys(TextBlocks.fonts)){const s={...first,x:440,y:100+Object.keys(TextBlocks.fonts).indexOf(font)*110,width:280,font,text:font+'\nПример текста'};gallery.pages[0].push(s)}render();
+  const exported=await Documents.compose(gallery,0);localStorage.setItem('test-text-export',exported.toDataURL());check('text export contains ink',exported.getContext('2d').getImageData(80,100,320,200).data.some((n,i)=>i%4===0&&n<50));
+  const parsed=await Backups.parse(JSON.stringify(await Backups.create({books:[gallery],selected:gallery.id},preferences)));check('text backup round trip lossless',JSON.stringify(parsed.library.books[0].pages)===JSON.stringify(gallery.pages));
+  for(const patch of [{size:0},{font:'unknown'},{width:Infinity},{text:'a'.repeat(10001)},{align:'invalid'}]){let rejected=false;try{Backups.validateLibrary({books:[{...gallery,pages:[[{...first,...patch}]]}]})}catch{rejected=true}check('invalid text rejected '+Object.keys(patch)[0],rejected)}
+  await save();check('text saved as editable IndexedDB object',(await NotepadStore.read()).books.find(b=>b.id===gallery.id).pages[0][0].text===first.text);
+  TextTools.clear();data.selected=originalBook.id;page=originalPage;Editor.choose('pen');render();PageView.fit();await save();
+}
