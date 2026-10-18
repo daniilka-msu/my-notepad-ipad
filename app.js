@@ -3,25 +3,54 @@ const uid=()=>crypto.randomUUID?.()||String(Date.now()+Math.random());
 let data;try{data=JSON.parse(localStorage.getItem(KEY))}catch{};
 if(!data?.books?.length)data={selected:null,books:[{id:uid(),name:'Моя первая тетрадь',paper:'grid',pages:[[]]}]};
 let book,page=0,tool='pen',drawing=null,redo=[];
-const canvas=$('canvas'),ctx=canvas.getContext('2d'),W=794,H=1123;
+const canvas=$('canvas'),ctx=canvas.getContext('2d'),W=794;
+let H=1123;
+const paperColors={white:'#ffffff',cream:'#fff6df',gray:'#30343d',black:'#101114'};
+let preferences={theme:'system',buttonSize:'normal',toolbarPosition:'top',showSidebar:true,compact:false};
+try{preferences={...preferences,...JSON.parse(localStorage.getItem('notepad-preferences')||'{}')}}catch{}
+const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
+function applyPreferences(){
+  document.documentElement.dataset.theme=preferences.theme==='system'?(systemTheme.matches?'dark':'light'):preferences.theme;
+  document.body.classList.toggle('large-buttons',preferences.buttonSize==='large');
+  document.body.classList.toggle('toolbar-bottom',preferences.toolbarPosition==='bottom');
+  document.body.classList.toggle('sidebar-hidden',!preferences.showSidebar);
+  document.body.classList.toggle('compact',preferences.compact);
+  document.querySelector('meta[name=theme-color]').content=document.documentElement.dataset.theme==='dark'?'#111620':'#edf0f6';
+}
+systemTheme.addEventListener?.('change',applyPreferences);
+for(const id of ['theme','buttonSize','toolbarPosition','showSidebar','compact']){
+  const control=$(id);if(control.type==='checkbox')control.checked=preferences[id];else control.value=preferences[id];
+  control.onchange=()=>{preferences[id]=control.type==='checkbox'?control.checked:control.value;applyPreferences();try{localStorage.setItem('notepad-preferences',JSON.stringify(preferences))}catch{}};
+}
+$('openSettings').onclick=()=>{$('paperColor').value=book.paperColor||'white';$('pageSize').value=book.pageSize||'a4';$('settingsDialog').showModal()};
+$('closeSettings').onclick=()=>$('settingsDialog').close();
+for(const id of ['paperColor','pageSize'])$(id).onchange=()=>{finish();book[id]=$(id).value;render()};
+applyPreferences();
 canvas.width=W*2;canvas.height=H*2;ctx.scale(2,2);
 function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){alert('Память браузера заполнена. Экспортируйте записи в PDF.')}}
 function selected(){book=data.books.find(b=>b.id===data.selected)||data.books[0];data.selected=book.id;page=Math.min(page,book.pages.length-1)}
 function renderBooks(){selected();$('books').replaceChildren();for(const b of data.books){const el=document.createElement('button');el.className='book'+(b.id===book.id?' selected':'');el.textContent='📓 '+b.name;el.onclick=()=>{data.selected=b.id;page=0;redo=[];render();$('sidebar').classList.remove('open')};$('books').append(el)}}
 function stroke(s){if(s.points.length===0)return;ctx.save();ctx.globalAlpha=s.tool==='marker'?.28:1;ctx.globalCompositeOperation=s.tool==='eraser'?'destination-out':'source-over';ctx.strokeStyle=s.tool==='eraser'?'#000':s.color;ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=s.width;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();const pts=s.points;ctx.moveTo(pts[0].x,pts[0].y);if(pts.length===1){ctx.lineTo(pts[0].x+.01,pts[0].y+.01)}else for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.stroke();ctx.restore()}
 function paint(){ctx.clearRect(0,0,W,H);for(const s of book.pages[page])stroke(s);if(drawing)stroke(drawing)}
-function render(){renderBooks();$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;$('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();save()}
+function render(){renderBooks();$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;
+  // Keep the original coordinate system: changing page format never rescales old notes.
+  $('page').style.aspectRatio=book.pageSize==='square'?'1':book.pageSize==='a5'?'559 / 794':'794 / 1123';
+  $('page').style.setProperty('--paper',paperColors[book.paperColor]||paperColors.white);
+  $('page').style.setProperty('--rule',['gray','black'].includes(book.paperColor)?'#596273':'#dce7f6');
+  $('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();save()}
 function pos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H}}
 let activePointer=null,activeType=null,frame=null,strokePage=null;
 const inputModeControl=document.createElement('label');
 inputModeControl.innerHTML='Ввод <select id="inputMode"><option value="any">Любой стилус и палец</option><option value="stylus">Только определяемый стилус</option><option value="pencil">Apple Pencil</option></select>';
 $('toolbar').append(inputModeControl);
+$('writingSettings').append(inputModeControl);
 try{$('inputMode').value=localStorage.getItem('notepad-input-mode')||'any'}catch{}
 $('inputMode').onchange=()=>{finish();try{localStorage.setItem('notepad-input-mode',$('inputMode').value)}catch{}};
 const inputHint=document.createElement('p');
 inputHint.className='input-hint';
 inputHint.textContent='Неоригинальный стилус может определяться как палец — выберите «Любой стилус и палец». Safari не гарантирует распознавание модели стилуса, включая Apple Pencil.';
 $('toolbar').after(inputHint);
+$('writingSettings').append(inputHint);
 function schedulePaint(){if(frame===null)frame=requestAnimationFrame(()=>{frame=null;paint()})}
 function finish(){
   if(!drawing)return;
@@ -69,6 +98,6 @@ document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.tool
 $('undo').onclick=()=>{const s=book.pages[page].pop();if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s)book.pages[page].push(s);render()};
 $('clear').onclick=()=>{if(confirm('Очистить текущую страницу?')){book.pages[page]=[];redo=[];render()}};
 $('newBook').onclick=()=>{const name=prompt('Название тетради:','Новая тетрадь');if(!name?.trim())return;const b={id:uid(),name:name.trim(),paper:'grid',pages:[[]]};data.books.push(b);data.selected=b.id;page=0;redo=[];render()};
-$('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};$('toggleSidebar').onclick=()=>$('sidebar').classList.toggle('open');
-$('exportPdf').onclick=()=>{const old=page;const imgs=[];for(let i=0;i<book.pages.length;i++){page=i;paint();const tmp=document.createElement('canvas');tmp.width=W;tmp.height=H;const c=tmp.getContext('2d');c.fillStyle='white';c.fillRect(0,0,W,H);if(book.paper!=='blank'){c.strokeStyle='#dce7f6';c.lineWidth=1;if(book.paper==='grid'){for(let x=0;x<W;x+=24){c.beginPath();c.moveTo(x,0);c.lineTo(x,H);c.stroke()}}for(let y=0;y<H;y+=book.paper==='grid'?24:32){c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke()}}c.drawImage(canvas,0,0,W,H);imgs.push(tmp.toDataURL('image/png'))}page=old;paint();const win=window.open('','_blank');if(!win){alert('Разрешите всплывающие окна для экспорта');return}win.document.write('<html><head><title>Экспорт тетради</title><style>@page{size:A4;margin:0}body{margin:0}img{display:block;width:100%;height:100vh;object-fit:contain;break-after:page}</style></head><body>'+imgs.map(s=>`<img src="${s}">`).join('')+'<script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>');win.document.close()};
+$('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};$('toggleSidebar').onclick=()=>{if(!preferences.showSidebar){preferences.showSidebar=true;$('showSidebar').checked=true;applyPreferences()}$('sidebar').classList.toggle('open')};
+$('exportPdf').onclick=()=>{const old=page;const imgs=[];for(let i=0;i<book.pages.length;i++){page=i;paint();const tmp=document.createElement('canvas');tmp.width=W;tmp.height=H;const c=tmp.getContext('2d');c.fillStyle=paperColors[book.paperColor]||paperColors.white;c.fillRect(0,0,W,H);if(book.paper!=='blank'){c.strokeStyle=['gray','black'].includes(book.paperColor)?'#596273':'#dce7f6';c.lineWidth=1;if(book.paper==='grid'){for(let x=0;x<W;x+=24){c.beginPath();c.moveTo(x,0);c.lineTo(x,H);c.stroke()}}for(let y=0;y<H;y+=book.paper==='grid'?24:32){c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke()}}c.drawImage(canvas,0,0,W,H);imgs.push(tmp.toDataURL('image/png'))}page=old;paint();const win=window.open('','_blank');if(!win){alert('Разрешите всплывающие окна для экспорта');return}win.document.write('<html><head><title>Экспорт тетради</title><style>@page{size:A4;margin:0}body{margin:0}img{display:block;width:100%;height:100vh;object-fit:contain;break-after:page}</style></head><body>'+imgs.map(s=>`<img src="${s}">`).join('')+'<script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>');win.document.close()};
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});

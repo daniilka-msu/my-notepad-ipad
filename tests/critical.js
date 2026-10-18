@@ -1,9 +1,10 @@
-﻿(async()=>{
+(async()=>{
 const results=[];
 function check(name,condition){results.push((condition?'PASS ':'FAIL ')+name)}
 function pointer(type,id,x=100,y=100,pointerType='touch',extra={}){canvas.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType,clientX:x,clientY:y,bubbles:true,cancelable:true,...extra}))}
 canvas.setPointerCapture=()=>{};canvas.hasPointerCapture=()=>false;
 try{
+preferences.theme='dark';applyPreferences();check('dark theme',document.documentElement.dataset.theme==='dark');preferences.theme='system';applyPreferences();check('system theme',document.documentElement.dataset.theme===(systemTheme.matches?'dark':'light'));book.paperColor='cream';render();check('paper independent of theme',$('page').style.getPropertyValue('--paper')===paperColors.cream);
 const initial=book.pages[page].length;
 pointer('pointerdown',1,100,100,'touch',{width:40});pointer('pointermove',1,120,120);pointer('pointerup',1,140,140);
 check('third-party stylus / wide touch draws',book.pages[page].length===initial+1);
