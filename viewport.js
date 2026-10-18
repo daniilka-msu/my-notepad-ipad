@@ -20,7 +20,7 @@ const PageView=(()=>{
     const next=sheet.getBoundingClientRect();workspace.scrollLeft+=next.left+u*next.width-x;workspace.scrollTop+=next.top+v*next.height-y;
   }
   function fit(){fitted=true;setZoom(Math.min(1,(workspace.clientWidth-48)/W));workspace.scrollTop=0}
-  function discardInk(){if(drawing){const id=activePointer;drawing=null;activePointer=null;activeType=null;strokePage=null;lastSample=null;if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);paint()}}
+  function discardInk(){if(drawing){drawing=null;activePointer=null;activeType=null;strokePage=null;lastSample=null;paint()}}
   function center(){const values=[...touches.values()];return {x:(values[0].x+values[1].x)/2,y:(values[0].y+values[1].y)/2,d:Math.hypot(values[0].x-values[1].x,values[0].y-values[1].y)}}
   canvas.addEventListener('pointerdown',e=>{
     if(e.pointerType==='pen'&&!gesture)touches.clear();

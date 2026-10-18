@@ -13,7 +13,7 @@ const Editor=(()=>{
     for(let i=0;i<notebook.pages.length;i++){
       if(token!==previewToken||!dialog.open)break;
       const button=document.createElement('button');button.className='page-thumb';button.setAttribute('aria-label','Страница '+(i+1));button.setAttribute('aria-current',String(i===page));button.textContent=String(i+1);button.onclick=()=>{go(i);dialog.close()};$('pageThumbnails').append(button);
-      try{const image=await Documents.compose(notebook,i);if(token!==previewToken||!dialog.open)break;const thumb=document.createElement('canvas');thumb.width=120;thumb.height=Math.round(120*image.height/image.width);thumb.getContext('2d').drawImage(image,0,0,thumb.width,thumb.height);button.prepend(thumb)}catch{button.title='Не удалось загрузить предпросмотр'}
+      try{const image=await Documents.compose(notebook,i);if(token!==previewToken||!dialog.open)break;const thumb=document.createElement('canvas');thumb.width=120;thumb.height=Math.round(120*image.height/image.width);thumb.getContext('2d').drawImage(image,0,0,thumb.width,thumb.height);button.prepend(thumb);image.width=image.height=0}catch{button.title='Не удалось загрузить предпросмотр'}
     }
   };
   $('closePages').onclick=()=>dialog.close();dialog.addEventListener('close',()=>previewToken++);

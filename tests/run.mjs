@@ -48,9 +48,14 @@ try{
    await waitForStorage();console.log('PASS notebooks survive reload');
    const restoredTheme=await call('Runtime.evaluate',{expression:'document.documentElement.dataset.theme==="dark"&&preferences.width===7',returnByValue:true});
    if(!restoredTheme.result?.result?.value)throw new Error('Preferences did not survive reload');console.log('PASS preferences survive reload');
+   for(const [width,height]of [[1024,1366],[1366,1024],[512,1024]]){
+     await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await sleep(150);
+     const layout=await call('Runtime.evaluate',{expression:'document.documentElement.scrollWidth<=innerWidth+1&&document.getElementById("workspace").clientHeight>120&&document.getElementById("bottom").getBoundingClientRect().bottom<=innerHeight+1',returnByValue:true});
+     if(!layout.result?.result?.value)throw new Error('Layout overflow at '+width+'x'+height);console.log('PASS responsive layout '+width+'x'+height);
+   }
    if(process.env.SCREENSHOT_DIR){
      await mkdir(process.env.SCREENSHOT_DIR,{recursive:true});await call('Emulation.setDeviceMetricsOverride',{width:1024,height:1366,deviceScaleFactor:1,mobile:true});
-     const capture=async name=>{const result=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.SCREENSHOT_DIR,name),Buffer.from(result.result.data,'base64'))};
+     const capture=async name=>{await sleep(200);const result=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.SCREENSHOT_DIR,name),Buffer.from(result.result.data,'base64'))};
      await capture('ipad-dark.png');await call('Runtime.evaluate',{expression:'document.getElementById("openSettings").click()'});await capture('ipad-settings.png');await call('Runtime.evaluate',{expression:'document.getElementById("settingsDialog").close();preferences.theme="light";applyPreferences()'});await capture('ipad-light.png');
    }
    // Stop the origin server: the next navigation and PDF module load must use the PWA cache.

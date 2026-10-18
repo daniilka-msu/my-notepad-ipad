@@ -50,11 +50,17 @@ for(const id of ['penType','smoothing','opacity','color','width','eraserMode']){
 }
 syncCorrection();
 canvas.width=W*2;canvas.height=H*2;ctx.scale(2,2);
-let storageReady=false,storageFailed=false;
+let storageReady=false,storageFailed=false,unsaved=false,saveVersion=0;
 function save(){
-  if(!storageReady)return Promise.resolve();
-  $('saveStatus').textContent='Сохранение…';
-  return NotepadStore.write(data).then(()=>{$('saveStatus').textContent='Сохранено на устройстве'},()=>{storageFailed=true;$('saveStatus').textContent='Не сохранено — сделайте резервную копию';return Promise.reject(new Error('Не удалось сохранить тетрадь. Проверьте свободное место.'))});
+  if(!storageReady){unsaved=true;return Promise.resolve()}
+  const version=++saveVersion;unsaved=true;$('saveStatus').textContent='Сохранение…';
+  return NotepadStore.write(data).then(()=>{
+    if(version!==saveVersion)return;
+    unsaved=false;storageFailed=false;$('saveStatus').textContent='Сохранено на устройстве';if($('saveWarning'))$('saveWarning').hidden=true;
+  },()=>{
+    unsaved=true;storageFailed=true;$('saveStatus').textContent='Не сохранено — сделайте резервную копию';if($('saveWarning'))$('saveWarning').hidden=false;
+    throw new Error('Не удалось сохранить тетрадь. Проверьте свободное место.');
+  });
 }
 function autosave(){save().catch(()=>{})}
 function selected(){book=data.books.find(b=>b.id===data.selected)||data.books[0];data.selected=book.id;page=Math.min(page,book.pages.length-1)}
@@ -224,7 +230,7 @@ document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.tool
 $('undo').onclick=()=>{const s=book.pages[page].pop();if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s)book.pages[page].push(s);render()};
 $('clear').onclick=()=>{if(confirm('Очистить текущую страницу?')){book.pages[page].push({tool:'stroke-eraser',color:'#000000',width:1,points:[],targets:book.pages[page].map((_,i)=>i)});redo=[];render()}};
 $('newBook').onclick=()=>{const name=prompt('Название тетради:','Новая тетрадь');if(!name?.trim())return;const b={id:uid(),name:name.trim(),paper:'grid',pages:[[]]};data.books.push(b);data.selected=b.id;page=0;redo=[];render()};
-$('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};$('toggleSidebar').onclick=()=>{if(!preferences.showSidebar){preferences.showSidebar=true;$('showSidebar').checked=true;applyPreferences()}$('sidebar').classList.toggle('open')};
+$('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};$('toggleSidebar').onclick=()=>{if(!preferences.showSidebar){preferences.showSidebar=true;$('showSidebar').checked=true;applyPreferences()}$('sidebar').classList.toggle('open');$('toggleSidebar').setAttribute('aria-expanded',String($('sidebar').classList.contains('open')))};
 
 
 let backgroundToken=0,backgroundURL=null,backgroundId=null;
@@ -246,14 +252,17 @@ async function updateBackground(){
 }
 $('importFile').onclick=()=>$('fileInput').click();
 $('fileInput').onchange=async e=>{
-  const file=e.target.files[0];e.target.value='';if(!file)return;
+  const files=[...e.target.files];e.target.value='';if(!files.length)return;
   if(!storageReady){alert('Хранилище не готово. Импорт недоступен.');return}
-  finish();const dialog=document.createElement('dialog');dialog.textContent='Импорт документа…';document.body.append(dialog);dialog.showModal();dialog.oncancel=e=>e.preventDefault();
+  finish();const dialog=document.createElement('dialog'),progress=document.createElement('p'),cancel=document.createElement('button');let cancelled=false;progress.textContent='Импорт документа…';cancel.textContent='Отмена';cancel.onclick=()=>{cancelled=true;progress.textContent='Отмена импорта…'};dialog.append(progress,cancel);document.body.append(dialog);dialog.showModal();dialog.oncancel=e=>{e.preventDefault();cancel.click()};
   try{
-    const result=await Documents.importFile(file,message=>dialog.textContent=message);
+    const imported=[];for(const [i,file]of files.entries()){
+      if(file.size>250*1024*1024)throw new Error('Файл превышает 250 МБ: '+file.name);
+      const result=await Documents.importFile(file,message=>{if(cancelled)throw new Error('Импорт отменён');progress.textContent=(i+1)+' / '+files.length+' · '+file.name+' · '+message});imported.push(result);if(cancelled)throw new Error('Импорт отменён');
+    }
 
     // Commit the new library only after every background has been stored.
-    const next={...data,books:[...data.books,result.book],selected:result.book.id};await NotepadStore.write(next,result.assets);data=next;page=0;redo=[];render();
+    const next={...data,books:[...data.books,...imported.map(item=>item.book)],selected:imported.at(-1).book.id};await NotepadStore.write(next,imported.flatMap(item=>item.assets));data=next;page=0;redo=[];render();
   }catch(error){alert('Импорт не выполнен: '+error.message)}finally{dialog.close();dialog.remove()}
 };
 $('exportPdf').onclick=async()=>{
@@ -274,7 +283,7 @@ const ready=(async()=>{
     else await NotepadStore.write(Backups.validateLibrary(data));
     storageReady=true;
   }catch{storageFailed=true;$('saveStatus').textContent='Хранилище недоступно — экспортируйте записи';}
-  render();if(!storageReady)$('saveStatus').textContent='Хранилище недоступно — записи не сохраняются';$('app').inert=false;
+  render();if(!storageReady){$('saveStatus').textContent='Хранилище недоступно — записи не сохраняются';if($('saveWarning'))$('saveWarning').hidden=false}$('app').inert=false;
 })();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 async function storageInformation(){
