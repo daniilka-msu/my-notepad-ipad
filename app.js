@@ -83,6 +83,7 @@ function renderBooks(){
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
 const ink=inkLayer.getContext('2d');
 function stroke(s){
+  if(s.type==='image-object'){ImageObjects.render(ctx,s,book);return}
   if(s.type==='text-block'){TextBlocks.render(ctx,s);return}
   if(s.type==='text'){ctx.save();ctx.fillStyle=s.color||'#222';ctx.font='18px -apple-system, sans-serif';for(const [i,line] of s.text.split('\n').entries())ctx.fillText(line,36,50+i*26,W-72);ctx.restore();return}
   if(!s.points?.length)return;
@@ -132,7 +133,7 @@ function paint(includePreview=true){
   }else{
     const hidden=new Set(items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets));
     if(previewErasure)for(const index of erasedTargets(drawing,items))hidden.add(index);
-    for(const [i,s]of Shapes.resolve(items,includePreview).entries())if(s&&!hidden.has(i)&&s.tool!=='stroke-eraser')stroke(s);
+    for(const [i,s]of Shapes.ordered(items,includePreview))if(s&&!hidden.has(i)&&s.tool!=='stroke-eraser')stroke(s);
     if(!previewErasure&&!previewShape){const layer=committedLayer.getContext('2d');layer.clearRect(0,0,committedLayer.width,committedLayer.height);layer.drawImage(canvas,0,0);cachedItems=items;cachedLength=items.length;cachedLast=items.at(-1)}
   }
   if(drawing&&drawing.tool!=='stroke-eraser')stroke(drawing);

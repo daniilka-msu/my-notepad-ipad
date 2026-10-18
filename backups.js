@@ -20,6 +20,9 @@ const Backups=(()=>{
         if(s.type==='shape-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!items[s.target].shape||(s.value!==null&&!validShape(s.value)))throw new Error('Повреждено изменение фигуры');continue}
         if(s.type==='text-block'){if(!TextBlocks.valid(s))throw new Error('Повреждён текстовый блок');continue}
         if(s.type==='text-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||items[s.target].type!=='text-block'||(s.value!==null&&!TextBlocks.valid(s.value)))throw new Error('Повреждено изменение текста');continue}
+        if(s.type==='image-object'){if(!ImageObjects.valid(s))throw new Error('Повреждено изображение');continue}
+        if(s.type==='object-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||items[s.target].type!=='image-object'||(s.value!==null&&!ImageObjects.valid(s.value)))throw new Error('Повреждено изменение объекта');continue}
+        if(s.type==='object-order'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||items[s.target].type!=='image-object'||!['front','back'].includes(s.placement))throw new Error('Повреждён порядок объектов');continue}
         if(!validBrush(s))throw new Error('Поврежден инструмент письма');
         if(s.shapeVersion===1&&!validShape(s))throw new Error('Повреждена фигура');
         if(s.type==='text'){if(typeof s.text!=='string'||s.text.length>100000||typeof s.color!=='string'||!/^#[0-9a-f]{6}$/i.test(s.color))throw new Error('Повреждён текст');continue}
@@ -34,6 +37,7 @@ const Backups=(()=>{
   function dataURL(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob)})}
   async function create(library,preferences){
     validateLibrary(library);const assets=[];const ids=new Set(library.books.flatMap(b=>(b.backgrounds||[]).filter(Boolean).map(bg=>bg.id)));
+    for(const id of ImageObjects.assetIds(library))ids.add(id);
     for(const id of ids){const value=await NotepadStore.asset(id);if(!value)throw new Error('Фон отсутствует: резервная копия была бы неполной');assets.push({id,data:await dataURL(value)})}
     return {format:'my-notepad-backup',version:2,createdAt:new Date().toISOString(),library:structuredClone(library),preferences:{...preferences},assets};
   }
@@ -50,11 +54,13 @@ const Backups=(()=>{
       assets.set(entry.id,blob);
     }
     for(const b of library.books)for(const bg of b.backgrounds||[])if(bg&&!assets.has(bg.id))throw new Error('В копии не хватает фона документа');
+    for(const id of ImageObjects.assetIds(library))if(!assets.has(id))throw new Error('В копии не хватает изображения');
     return {library,assets};
   }
   async function merge(current,backup){
     const assets=[],idMap=new Map();for(const [id,blob]of backup.assets){const newId=uid();idMap.set(id,newId);assets.push([newId,blob])}
     const books=structuredClone(backup.library.books);for(const b of books){b.id=uid();b.name+=' (копия)';for(const bg of b.backgrounds||[])if(bg)bg.id=idMap.get(bg.id)}
+    for(const b of books)for(const items of b.pages)for(const s of items)for(const v of [s,s.value])if(v?.type==='image-object')v.asset=idMap.get(v.asset);
     const next={...current,books:[...current.books,...books],selected:books[0].id};
     await NotepadStore.write(next,assets);return next;
   }

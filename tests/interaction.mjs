@@ -43,3 +43,17 @@ export async function verifyTextUI(call,capture){
   if(await evaluate('JSON.stringify(book.pages[page])')!==original)throw new Error('Text UI undo did not restore original');
   console.log('PASS text tool accepts keyboard input, moves, edits, deletes and undoes through real UI');
 }
+export async function verifyImageUI(call,fixture){
+  const {evaluate,click,drag}=driver(call);
+  await click('#toggleSidebar');await evaluate('document.querySelectorAll(".book").forEach(b=>{if(b.textContent.includes("Изображения 2.1"))b.id="testImageGalleryButton"})');await click('#testImageGalleryButton');await click('#fitPage');
+  const original=await evaluate('JSON.stringify(book.pages[page])');
+  const file=await fixture(await evaluate('(()=>{const c=document.createElement("canvas");c.width=120;c.height=80;const ctx=c.getContext("2d");ctx.fillStyle="#2070b0";ctx.fillRect(0,0,120,80);return c.toDataURL().split(",")[1]})()'));
+  await click('#extraTools summary');
+  const doc=await call('DOM.getDocument');const input=await call('DOM.querySelector',{nodeId:doc.result.root.nodeId,selector:'#imageFile'});await call('DOM.setFileInputFiles',{nodeId:input.result.nodeId,files:[file]});
+  for(let i=0;i<100;i++){if(await evaluate('book.pages[page].at(-1)?.type==="image-object"'))break;await new Promise(r=>setTimeout(r,50))}
+  if(!await evaluate('ObjectTools.current()?.type==="image-object"'))throw new Error('Image file picker import failed');
+  await drag({x:70,y:90},{x:100,y:130});await click('#editObject');await evaluate('document.getElementById("imageRotation").value="90"');await click('#applyImage');
+  if(!await evaluate('ObjectTools.current()?.rotation===90&&Math.abs(ObjectTools.current().x-90)<1'))throw new Error('Image manipulation UI failed');
+  await click('#deleteObject');for(let i=0;i<4;i++)await click('#undo');if(await evaluate('JSON.stringify(book.pages[page])')!==original)throw new Error('Image UI undo failed');
+  console.log('PASS system file input inserts image; UI moves, rotates, deletes and undoes alongside ink and text');
+}

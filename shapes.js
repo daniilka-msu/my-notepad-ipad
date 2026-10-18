@@ -28,9 +28,14 @@ const Shapes = (() => {
     return result.map(p=>({x:p.x,y:p.y/scale,p:.5}));
   }
   function resolve(items, includePreview=true) {
-    const result=items.map(s=>['shape-edit','text-edit'].includes(s.type)?null:s);
-    for(const entry of items)if(['shape-edit','text-edit'].includes(entry.type))result[entry.target]=entry.value;
+    const result=items.map(s=>['shape-edit','text-edit','object-edit','object-order'].includes(s.type)?null:s);
+    for(const entry of items)if(['shape-edit','text-edit','object-edit'].includes(entry.type))result[entry.target]=entry.value;
     if(includePreview&&preview?.items===items)result[preview.index]=preview.value;
+    return result;
+  }
+  function ordered(items,includePreview=true) {
+    const result=resolve(items,includePreview).map((s,i)=>[i,s]);
+    for(const entry of items)if(entry.type==='object-order'){const index=result.findIndex(([i])=>i===entry.target);if(index<0)continue;const [value]=result.splice(index,1);if(entry.placement==='front')result.push(value);else result.unshift(value)}
     return result;
   }
   function render(context, shape, notebook = {}) {
@@ -54,5 +59,5 @@ const Shapes = (() => {
     }
     return shape.points.some((b,i)=>pointSegmentDistance(p,shape.points[Math.max(0,i-1)],b)<tolerance+shape.width/2);
   }
-  return {kinds,closed,points,resolve,render,bounds,hit,setPreview(value){preview=value},hasPreview(items){return preview?.items===items}};
+  return {kinds,closed,points,resolve,ordered,render,bounds,hit,setPreview(value){preview=value},hasPreview(items){return preview?.items===items}};
 })();
