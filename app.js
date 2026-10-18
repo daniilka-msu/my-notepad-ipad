@@ -83,6 +83,7 @@ function renderBooks(){
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
 const ink=inkLayer.getContext('2d');
 function stroke(s){
+  if(s.type==='chart-object'){Charts.render(ctx,s);return}
   if(s.type==='image-object'){ImageObjects.render(ctx,s,book);return}
   if(s.type==='text-block'){TextBlocks.render(ctx,s);return}
   if(s.type==='text'){ctx.save();ctx.fillStyle=s.color||'#222';ctx.font='18px -apple-system, sans-serif';for(const [i,line] of s.text.split('\n').entries())ctx.fillText(line,36,50+i*26,W-72);ctx.restore();return}

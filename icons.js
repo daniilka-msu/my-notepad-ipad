@@ -1,5 +1,6 @@
 const NotepadIcons=(()=>{
   const paths={
+    chart:'M3 3v18h18M7 17v-5M12 17V7M17 17V4',
     image:'M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6M17 8h.01',
     text:'M4 5h16M12 5v15M8 20h8M4 5v3M20 5v3',
     menu:'M4 6h16M4 12h16M4 18h16',

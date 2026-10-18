@@ -57,3 +57,11 @@ export async function verifyImageUI(call,fixture){
   await click('#deleteObject');for(let i=0;i<4;i++)await click('#undo');if(await evaluate('JSON.stringify(book.pages[page])')!==original)throw new Error('Image UI undo failed');
   console.log('PASS system file input inserts image; UI moves, rotates, deletes and undoes alongside ink and text');
 }
+export async function verifyChartUI(call){
+  const {evaluate,click,drag}=driver(call);
+  await click('#toggleSidebar');await evaluate('document.querySelectorAll(".book").forEach(b=>{if(b.textContent.includes("Графики 2.1"))b.id="testChartGalleryButton"})');await click('#testChartGalleryButton');await click('#fitPage');
+  const original=await evaluate('JSON.stringify(book.pages[page])');await click('#extraTools summary');await click('#insertChart');
+  await evaluate('document.getElementById("chartKind").value="function";document.getElementById("chartForm").dispatchEvent(new Event("input"))');if(!await evaluate('document.getElementById("chartDialog").scrollWidth<=document.getElementById("chartDialog").clientWidth+1'))throw new Error('Chart editor overflows narrow viewport');await click('#chartExpression');await call('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',windowsVirtualKeyCode:65,nativeVirtualKeyCode:65,modifiers:2});await call('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',modifiers:2});await call('Input.insertText',{text:'x^2-1'});await click('#applyChart');
+  if(!await evaluate('ObjectTools.current()?.expression==="x^2-1"'))throw new Error('Function graph input UI failed: '+await evaluate('JSON.stringify({value:document.getElementById("chartExpression").value,focus:document.activeElement?.id,error:document.getElementById("chartError").textContent,open:document.getElementById("chartDialog").open,current:ObjectTools.current()})'));await drag({x:100,y:150},{x:140,y:180});await click('#editObject');if(!await evaluate('document.getElementById("chartExpression").value==="x^2-1"'))throw new Error('Graph UI did not restore expression');await click('#closeChart');await click('#deleteObject');for(let i=0;i<3;i++)await click('#undo');
+  if(await evaluate('JSON.stringify(book.pages[page])')!==original)throw new Error('Graph UI undo failed');console.log('PASS graph editor keyboard input, insertion, movement, reopening and undo through real UI');
+}
