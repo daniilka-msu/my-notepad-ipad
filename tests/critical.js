@@ -4,6 +4,7 @@ function check(name,condition){results.push((condition?'PASS ':'FAIL ')+name)}
 function pointer(type,id,x=100,y=100,pointerType='touch',extra={}){canvas.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType,clientX:x,clientY:y,bubbles:true,cancelable:true,...extra}))}
 canvas.setPointerCapture=()=>{};canvas.hasPointerCapture=()=>false;
 try{await ready;
+await runInterfaceTests(check);
 check('legacy localStorage migrated',data.books[0].id==='legacy'&&storageReady);
 check('legacy source retained',JSON.parse(localStorage.getItem(KEY)).books[0].name==='Старый конспект');
 preferences.theme='dark';applyPreferences();check('dark theme',document.documentElement.dataset.theme==='dark');preferences.theme='system';applyPreferences();check('system theme',document.documentElement.dataset.theme===(systemTheme.matches?'dark':'light'));book.paperColor='cream';render();check('paper independent of theme',$('page').style.getPropertyValue('--paper')===paperColors.cream);

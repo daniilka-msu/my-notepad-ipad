@@ -8,7 +8,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const index=await readFile(resolve(root,'index.html'),'utf8');
 const tests=await readFile(resolve(root,'tests/critical.js'),'utf8');
 const legacySeed='<script>localStorage.setItem("ipad-notebooks-v1",JSON.stringify({selected:"legacy",books:[{id:"legacy",name:"Старый конспект",paper:"grid",pages:[[{tool:"pen",color:"#222222",width:3,points:[{x:20,y:20},{x:30,y:30}]}]]}]}));</script>';
-const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/critical.js"></script>');
+const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/interface.js"></script><script src="tests/critical.js"></script>');
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.wasm':'application/wasm','.svg':'image/svg+xml','.pdf':'application/pdf'};
 const server=http.createServer(async(req,res)=>{
  try{
@@ -48,15 +48,33 @@ try{
    await waitForStorage();console.log('PASS notebooks survive reload');
    const restoredTheme=await call('Runtime.evaluate',{expression:'document.documentElement.dataset.theme==="dark"&&preferences.width===7',returnByValue:true});
    if(!restoredTheme.result?.result?.value)throw new Error('Preferences did not survive reload');console.log('PASS preferences survive reload');
-   for(const [width,height]of [[1024,1366],[1366,1024],[512,1024]]){
+   for(const [width,height]of [[1024,1366],[1366,1024],[1024,768],[512,1024],[320,768]]){
      await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await sleep(150);
      const layout=await call('Runtime.evaluate',{expression:'document.documentElement.scrollWidth<=innerWidth+1&&document.getElementById("workspace").clientHeight>120&&document.getElementById("bottom").getBoundingClientRect().bottom<=innerHeight+1',returnByValue:true});
      if(!layout.result?.result?.value)throw new Error('Layout overflow at '+width+'x'+height);console.log('PASS responsive layout '+width+'x'+height);
+     for(const pointerType of ['mouse','touch','pen']){
+       const point=await call('Runtime.evaluate',{expression:'(()=>{const r=document.getElementById("toggleSidebar").getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()',returnByValue:true});
+       const {x,y}=point.result.result.value;
+       const before=await call('Runtime.evaluate',{expression:'JSON.stringify([PageView.zoom,document.getElementById("workspace").scrollLeft,document.getElementById("workspace").scrollTop])',returnByValue:true});
+       const tap=async()=>{
+         if(pointerType==='touch'){await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})}
+         else{await call('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1,pointerType});await call('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1,pointerType})}
+         await sleep(60);
+       };
+       await tap();const opened=await call('Runtime.evaluate',{expression:'Sidebar.open&&document.getElementById("toggleSidebar").getAttribute("aria-expanded")==="true"',returnByValue:true});
+       if(!opened.result?.result?.value)throw new Error('Library did not open with '+pointerType+' at '+width);
+       await tap();const closed=await call('Runtime.evaluate',{expression:'!Sidebar.open&&document.getElementById("sidebarBackdrop").hidden',returnByValue:true});
+       const after=await call('Runtime.evaluate',{expression:'JSON.stringify([PageView.zoom,document.getElementById("workspace").scrollLeft,document.getElementById("workspace").scrollTop])',returnByValue:true});
+       if(!closed.result?.result?.value||before.result.result.value!==after.result.result.value)throw new Error('Library changed page view with '+pointerType+' at '+width);
+       console.log('PASS library '+pointerType+' input '+width+'x'+height);
+     }
    }
    if(process.env.SCREENSHOT_DIR){
      await mkdir(process.env.SCREENSHOT_DIR,{recursive:true});await call('Emulation.setDeviceMetricsOverride',{width:1024,height:1366,deviceScaleFactor:1,mobile:true});
      const capture=async name=>{await sleep(200);const result=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.SCREENSHOT_DIR,name),Buffer.from(result.result.data,'base64'))};
      await capture('ipad-dark.png');await call('Runtime.evaluate',{expression:'document.getElementById("openSettings").click()'});await capture('ipad-settings.png');await call('Runtime.evaluate',{expression:'document.getElementById("settingsDialog").close();preferences.theme="light";applyPreferences()'});await capture('ipad-light.png');
+     await call('Runtime.evaluate',{expression:'document.getElementById("toggleSidebar").click()'});await capture('ipad-library.png');await call('Runtime.evaluate',{expression:'Sidebar.close();document.getElementById("extraTools").open=true'});await capture('ipad-tools.png');await call('Runtime.evaluate',{expression:'document.getElementById("extraTools").open=false;document.getElementById("focusMode").click()'});await capture('ipad-focus.png');await call('Runtime.evaluate',{expression:'document.getElementById("focusMode").click()'});
+     await call('Emulation.setDeviceMetricsOverride',{width:512,height:1024,deviceScaleFactor:1,mobile:true});await capture('split-view.png');await call('Runtime.evaluate',{expression:'document.getElementById("toggleSidebar").click()'});await capture('split-library.png');await call('Runtime.evaluate',{expression:'Sidebar.close()'});await call('Emulation.setDeviceMetricsOverride',{width:1024,height:768,deviceScaleFactor:1,mobile:true});await call('Runtime.evaluate',{expression:'document.getElementById("toggleSidebar").click()'});await capture('landscape-library.png');await call('Runtime.evaluate',{expression:'Sidebar.close()'});
    }
    // Stop the origin server: the next navigation and PDF module load must use the PWA cache.
    await new Promise(resolve=>server.close(resolve));
@@ -65,6 +83,8 @@ try{
    const offlinePDF=await call('Runtime.evaluate',{expression:'Documents.pdfjs().then(module=>typeof module.getDocument==="function")',awaitPromise:true,returnByValue:true});
    if(!offlinePDF.result?.result?.value)throw new Error('PDF library unavailable offline');
    console.log('PASS PWA and PDF library load offline');
+   const offlineUI=await call('Runtime.evaluate',{expression:'(()=>{document.getElementById("toggleSidebar").click();const ok=Sidebar.open&&!!document.querySelector("#toggleSidebar svg");Sidebar.close();return ok})()',returnByValue:true});if(!offlineUI.result?.result?.value)throw new Error('Redesigned UI unavailable offline');console.log('PASS library and SVG icons work offline');
  }
+ if(errors.length)throw new Error(errors.join('\n'));
  await call('Browser.close');
 }finally{ws?.close();browser.kill();server.close()}

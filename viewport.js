@@ -1,11 +1,12 @@
 const PageView=(()=>{
   const workspace=$('workspace'),sheet=$('page');
   const stage=document.createElement('div');stage.id='sheetStage';sheet.before(stage);stage.append(sheet);
-  const controls=document.createElement('div');controls.id='viewControls';controls.innerHTML='<button class="tool" data-tool="hand" aria-pressed="false">✋ Рука</button><button id="zoomOut" aria-label="Уменьшить масштаб">−</button><output id="zoomValue" aria-live="polite">100%</output><button id="zoomIn" aria-label="Увеличить масштаб">+</button><button id="fitPage">По ширине</button>';
+  const controls=document.createElement('div');controls.id='viewControls';controls.innerHTML='<button class="tool" data-tool="hand" aria-pressed="false">Рука</button><button id="zoomOut" aria-label="Уменьшить масштаб">−</button><output id="zoomValue" aria-live="polite">100%</output><button id="zoomIn" aria-label="Увеличить масштаб">+</button><button id="fitPage">По ширине</button>';
   $('bottom').before(controls);
   let zoom=1,fitted=true,gesture=null;
   const touches=new Map(),blocked=new Set();
   function layout(){
+    if(!sheet.isConnected)return;
     const ratio=sheet.style.aspectRatio==='1'?1:sheet.style.aspectRatio.includes('559')?794/559:1123/794;
     const width=W*zoom,height=width*ratio;
     stage.style.width=Math.max(workspace.clientWidth,width+48)+'px';stage.style.height=height+48+'px';
@@ -45,7 +46,7 @@ const PageView=(()=>{
   controls.querySelector('[data-tool=hand]').onclick=()=>{finish();tool='hand';document.querySelectorAll('.tool').forEach(b=>{b.classList.toggle('active',b.dataset.tool===tool);b.setAttribute('aria-pressed',String(b.dataset.tool===tool))})};
   $('zoomIn').onclick=()=>{finish();fitted=false;setZoom(zoom+.1)};$('zoomOut').onclick=()=>{finish();fitted=false;setZoom(zoom-.1)};$('fitPage').onclick=()=>{finish();fit()};
   workspace.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();finish();fitted=false;setZoom(zoom*Math.exp(-e.deltaY*.002),e.clientX,e.clientY)}},{passive:false});
-  new ResizeObserver(()=>{if(fitted)fit();else layout()}).observe(workspace);
+  new ResizeObserver((entries,observer)=>{if(!workspace.isConnected){observer.disconnect();return}if(fitted)fit();else layout()}).observe(workspace);
   new MutationObserver(layout).observe(sheet,{attributes:true,attributeFilter:['class']});
   fit();return {setZoom,fit,get zoom(){return zoom},layout};
 })();

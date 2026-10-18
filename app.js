@@ -6,7 +6,7 @@ let book,page=0,tool='pen',drawing=null,redo=[];
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),W=794;
 let H=1123;
 const paperColors={white:'#ffffff',cream:'#fff6df',gray:'#30343d',black:'#101114'};
-let preferences={theme:'system',buttonSize:'normal',toolbarPosition:'top',showSidebar:true,compact:false,penType:'regular',smoothing:20,stabilization:0,opacity:100,color:'#222222',width:3,eraserMode:'pixel'};
+let preferences={theme:'system',buttonSize:'normal',toolbarPosition:'top',showSidebar:false,compact:false,penType:'regular',smoothing:20,stabilization:0,opacity:100,color:'#222222',width:3,eraserMode:'pixel'};
 try{preferences={...preferences,...JSON.parse(localStorage.getItem('notepad-preferences')||'{}')}}catch{}
 if(!Number.isFinite(preferences.stabilization))preferences.stabilization=0;
 const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
@@ -14,12 +14,11 @@ function applyPreferences(){
   document.documentElement.dataset.theme=preferences.theme==='system'?(systemTheme.matches?'dark':'light'):preferences.theme;
   document.body.classList.toggle('large-buttons',preferences.buttonSize==='large');
   document.body.classList.toggle('toolbar-bottom',preferences.toolbarPosition==='bottom');
-  document.body.classList.toggle('sidebar-hidden',!preferences.showSidebar);
   document.body.classList.toggle('compact',preferences.compact);
-  document.querySelector('meta[name=theme-color]').content=document.documentElement.dataset.theme==='dark'?'#111620':'#edf0f6';
+  document.querySelector('meta[name=theme-color]').content=document.documentElement.dataset.theme==='dark'?'#151a27':'#f3f5fa';
 }
 systemTheme.addEventListener?.('change',applyPreferences);
-for(const id of ['theme','buttonSize','toolbarPosition','showSidebar','compact']){
+for(const id of ['theme','buttonSize','toolbarPosition','compact']){
   const control=$(id);if(control.type==='checkbox')control.checked=preferences[id];else control.value=preferences[id];
   control.onchange=()=>{preferences[id]=control.type==='checkbox'?control.checked:control.value;applyPreferences();try{localStorage.setItem('notepad-preferences',JSON.stringify(preferences))}catch{}};
 }
@@ -68,7 +67,16 @@ function visibleBooks(){
   const query=($('bookSearch')?.value||'').trim().toLocaleLowerCase('ru');let books=data.books.filter(b=>b.name.toLocaleLowerCase('ru').includes(query));
   const order=$('bookSort')?.value;if(order==='name')books.sort((a,b)=>a.name.localeCompare(b.name,'ru'));if(order==='newest')books.reverse();return books;
 }
-function renderBooks(){selected();$('books').replaceChildren();for(const b of visibleBooks()){const el=document.createElement('button');el.className='book'+(b.id===book.id?' selected':'');el.textContent='📓 '+b.name;el.onclick=()=>{data.selected=b.id;page=0;redo=[];render();$('sidebar').classList.remove('open')};$('books').append(el)}}
+function renderBooks(){
+  selected();$('books').replaceChildren();
+  for(const b of visibleBooks()){
+    const el=document.createElement('button');el.className='book'+(b.id===book.id?' selected':'');el.setAttribute('aria-current',String(b.id===book.id));
+    const cover=document.createElement('span');cover.className='book-cover';cover.append(NotepadIcons.create('notebook'));
+    const details=document.createElement('span');details.className='book-details';const name=document.createElement('span');name.className='book-name';name.textContent=b.name;const count=document.createElement('small');count.textContent=b.pages.length+' стр.';details.append(name,count);el.append(cover,details);
+    el.onclick=()=>{data.selected=b.id;page=0;redo=[];render();document.dispatchEvent(new Event('notepad:book-selected'))};$('books').append(el);
+  }
+  if($('libraryCount'))$('libraryCount').textContent=data.books.length;
+}
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
 const ink=inkLayer.getContext('2d');
 function stroke(s){
@@ -230,7 +238,7 @@ document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.tool
 $('undo').onclick=()=>{const s=book.pages[page].pop();if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s)book.pages[page].push(s);render()};
 $('clear').onclick=()=>{if(confirm('Очистить текущую страницу?')){book.pages[page].push({tool:'stroke-eraser',color:'#000000',width:1,points:[],targets:book.pages[page].map((_,i)=>i)});redo=[];render()}};
 $('newBook').onclick=()=>{const name=prompt('Название тетради:','Новая тетрадь');if(!name?.trim())return;const b={id:uid(),name:name.trim(),paper:'grid',pages:[[]]};data.books.push(b);data.selected=b.id;page=0;redo=[];render()};
-$('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};$('toggleSidebar').onclick=()=>{if(!preferences.showSidebar){preferences.showSidebar=true;$('showSidebar').checked=true;applyPreferences()}$('sidebar').classList.toggle('open');$('toggleSidebar').setAttribute('aria-expanded',String($('sidebar').classList.contains('open')))};
+$('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};
 
 
 let backgroundToken=0,backgroundURL=null,backgroundId=null;

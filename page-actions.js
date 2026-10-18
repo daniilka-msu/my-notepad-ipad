@@ -25,7 +25,7 @@ const PageActions=(()=>{
   $('emergencyBackup').onclick=()=>$('exportBackup').click();
   window.addEventListener('beforeunload',e=>{if(unsaved||drawing){finish();e.preventDefault();e.returnValue=''}});
   document.addEventListener('keydown',e=>{
-    if(e.target.closest?.('input,textarea,select,[contenteditable=true]')||document.querySelector('dialog[open]'))return;
+    if(document.body.classList.contains('library-open')||e.target.closest?.('input,textarea,select,[contenteditable=true]')||document.querySelector('dialog[open]'))return;
     if(e.ctrlKey||e.metaKey){if(e.key.toLowerCase()==='z'){e.preventDefault();$(e.shiftKey?'redo':'undo').click()}else if(e.key.toLowerCase()==='y'){e.preventDefault();$('redo').click()}else if(e.key==='0'){e.preventDefault();PageView.fit()}return}
     const keys={p:'pen',h:'hand',e:'eraser',m:'marker'};if(keys[e.key.toLowerCase()]){e.preventDefault();Editor.choose(keys[e.key.toLowerCase()])}
     if(e.key==='ArrowLeft')$('prev').click();if(e.key==='ArrowRight')$('next').click();if(e.key.toLowerCase()==='f')$('focusMode').click();
