@@ -33,10 +33,11 @@ const Shapes = (() => {
     if(includePreview&&preview?.items===items)result[preview.index]=preview.value;
     return result;
   }
-  function render(context, shape) {
-    context.save();context.globalAlpha=shape.opacity??1;context.strokeStyle=shape.color;context.fillStyle=shape.fill||'transparent';context.lineWidth=shape.width;context.lineCap='round';context.lineJoin='round';
+  function render(context, shape, notebook = {}) {
+    const scale=Paper.geometry(notebook).outputHeight/1123;
+    context.save();context.scale(1,1/scale);context.globalAlpha=shape.opacity??1;context.strokeStyle=shape.color;context.fillStyle=shape.fill||'transparent';context.lineWidth=shape.width;context.lineCap='round';context.lineJoin='round';
     if(shape.shape==='dashed')context.setLineDash([shape.width*3,shape.width*2]);
-    context.beginPath();for(const [i,p]of shape.points.entries()){if(i)context.lineTo(p.x,p.y);else context.moveTo(p.x,p.y)}
+    context.beginPath();for(const [i,p]of shape.points.entries()){if(i)context.lineTo(p.x,p.y*scale);else context.moveTo(p.x,p.y*scale)}
     if(closed.has(shape.shape)){context.closePath();if(shape.fill)context.fill()}context.stroke();context.restore();
   }
   function bounds(shape) {

@@ -5,6 +5,11 @@ async function runShapeTests(check) {
   for(const format of ['a4','a5','square'])for(const reverse of [false,true]){
     const notebook={pageSize:format},a=reverse?{x:240,y:260}:{x:100,y:100},b=reverse?{x:100,y:100}:{x:240,y:260};
     const pts=Shapes.points('circle',a,b,notebook),bounds=Shapes.bounds({points:pts}),scale=Paper.geometry(notebook).outputHeight/H,cx=(bounds.x+bounds.right)/2,cy=(bounds.y+bounds.bottom)/2;
+    if(!reverse){
+      const image=await Documents.compose({...notebook,paper:'blank',pages:[[{shape:'circle',shapeVersion:1,tool:'pen',color:'#222222',width:20,points:pts}]]},0),pixels=image.getContext('2d').getImageData(0,0,image.width,image.height).data;let x0=image.width,y0=image.height,x1=0,y1=0;
+      for(let y=0;y<image.height;y++)for(let x=0;x<image.width;x++)if(pixels[(y*image.width+x)*4]<120){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)}
+      check('rendered circle outer diameter is equal '+format,Math.abs((x1-x0)-(y1-y0))<=2);
+    }
     const radii=pts.map(p=>Math.hypot(p.x-cx,(p.y-cy)*scale));
     check('circle is circular '+format+' reverse '+reverse,Math.max(...radii)-Math.min(...radii)<.001&&near(bounds.right-bounds.x,(bounds.bottom-bounds.y)*scale));
   }

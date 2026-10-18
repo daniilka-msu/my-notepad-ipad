@@ -33,7 +33,7 @@ const ShapeTools = (() => {
     const items=book.pages[page],hidden=new Set(items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets)),resolved=Shapes.resolve(items,false),p=pos(e),tolerance=12*W/canvas.getBoundingClientRect().width;
     selection=null;for(let i=resolved.length-1;i>=0;i--)if(resolved[i]?.shape&&!hidden.has(i)&&Shapes.hit(resolved[i],p,tolerance)){selection={book,page,items,index:i};break}update();start(e,'move');
   },true);
-  $('resizeShape').onpointerdown=e=>{if(!drag&&validPosition(e))start(e,'resize')};
+  $('resizeShape').onpointerdown=e=>{if(!drag&&e.button===0&&validPosition(e)&&($('inputMode').value==='any'||e.pointerType==='pen'))start(e,'resize')};
   function moved(e){
     if(!drag||e.pointerId!==drag.id||e.pointerType!==drag.type||!validPosition(e)||e.timeStamp<drag.time)return;
     drag.time=e.timeStamp;const p=pos(e),original=drag.shape,b=Shapes.bounds(original),dx=p.x-drag.point.x,dy=p.y-drag.point.y;
@@ -46,6 +46,6 @@ const ShapeTools = (() => {
   canvas.addEventListener('pointerup',e=>{if(!drag||drag.id!==e.pointerId)return;moved(e);const value=current(),changed=JSON.stringify(value)!==JSON.stringify(drag.shape);if(changed)commit(value);else cancel();e.preventDefault();e.stopImmediatePropagation()},true);
   for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(drag?.id===e.pointerId){cancel();e.stopImmediatePropagation()}},true);
   document.addEventListener('notepad:render',update);document.addEventListener('notepad:gesture-start',cancel);document.addEventListener('notepad:tool',()=>{if(tool!=='selectShape')clear()});window.addEventListener('blur',cancel);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancel()});
-  document.addEventListener('keydown',e=>{if(document.querySelector('dialog[open]')||e.target.closest?.('input,textarea,select'))return;if(e.key==='Escape')clear();if((e.key==='Delete'||e.key==='Backspace')&&current()){e.preventDefault();$('deleteShape').click()}});
+  document.addEventListener('keydown',e=>{if(document.body.classList.contains('library-open')||document.querySelector('dialog[open]')||e.target.closest?.('input,textarea,select'))return;if(e.key==='Escape')clear();if((e.key==='Delete'||e.key==='Backspace')&&current()){e.preventDefault();$('deleteShape').click()}});
   values();return {clear,current,cancel};
 })();
