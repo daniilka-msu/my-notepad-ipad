@@ -22,6 +22,56 @@ for(const mode of ['stylus','pencil']){$('inputMode').value=mode;pointer('pointe
 $('inputMode').value='any';
 check('toolbar cannot select text',getComputedStyle($('toolbar')).userSelect==='none');
 check('canvas blocks touch scrolling',getComputedStyle(canvas).touchAction==='none');
+
+// Regression cases use explicit timestamps to exercise browser sample ordering.
+function pointerSample(type,id,x,y,time,extra={}){
+  const event=new PointerEvent(type,{pointerId:id,pointerType:'pen',clientX:x,clientY:y,pressure:.6,bubbles:true,cancelable:true,...extra});
+  Object.defineProperty(event,'timeStamp',{value:time});return event;
+}
+function emit(type,id,x,y,time,extra){canvas.dispatchEvent(pointerSample(type,id,x,y,time,extra))}
+const originalSmoothing=preferences.smoothing;preferences.smoothing=0;
+emit('pointerdown',200,100,100,100);emit('pointerup',200,100,100,101);
+check('tap stores one point',book.pages[page].at(-1).points.length===1);
+emit('pointerdown',201,100,100,110);emit('pointermove',201,102,102,111);emit('pointerup',201,102,102,112);
+check('short stroke has no duplicate release',book.pages[page].at(-1).points.length===2);
+emit('pointerdown',202,100,100,120);emit('pointermove',202,130,110,125);emit('pointerup',202,500,500,130);
+check('distant release adds no tail',book.pages[page].at(-1).points.length===2);
+const previousStroke=book.pages[page].at(-1);
+emit('pointerdown',203,300,300,140);emit('pointerup',203,300,300,141);
+check('separate strokes stay separate',book.pages[page].at(-1).points.length===1&&previousStroke.points.length===2);
+emit('pointerdown',204,100,100,150);emit('pointermove',204,240,100,151);emit('pointerup',204,240,100,152);
+check('fast valid motion retained',book.pages[page].at(-1).points.length===2);
+emit('pointerdown',205,100,100,160);emit('pointermove',205,700,700,161);emit('pointermove',205,710,710,162);emit('pointerup',205,710,710,163);
+check('coordinate jump terminates without bridge',drawing===null&&book.pages[page].at(-1).points.length===1);
+emit('pointerdown',206,100,100,170);
+const batch=pointerSample('pointermove',206,140,100,175);
+batch.getCoalescedEvents=()=>[pointerSample('pointermove',206,130,100,174),pointerSample('pointermove',999,600,100,172),pointerSample('pointermove',206,120,100,172),pointerSample('pointermove',206,900,100,180),pointerSample('pointermove',206,110,100,169)];
+canvas.dispatchEvent(batch);
+check('coalesced samples filtered and ordered',drawing.points.length===4&&drawing.points[1].x<drawing.points[2].x&&drawing.points[2].x<drawing.points[3].x);
+emit('pointermove',206,120,100,173);check('stale sample ignored',drawing.points.length===4);
+emit('pointercancel',206,900,900,176);const cancelled=book.pages[page].at(-1);
+emit('pointerup',206,800,800,177);emit('lostpointercapture',206,800,800,178);
+check('cancel commits once without endpoint',drawing===null&&cancelled===book.pages[page].at(-1)&&cancelled.points.length===4);
+emit('pointerdown',207,100,100,190);emit('pointermove',207,110,100,191);emit('lostpointercapture',207,800,800,192);emit('pointerup',207,800,800,193);
+check('lost capture preserves only accepted points',drawing===null&&book.pages[page].at(-1).points.length===2);
+emit('pointerdown',208,100,100,200);const invalid=pointerSample('pointermove',208,110,100,201);Object.defineProperty(invalid,'clientX',{value:NaN});canvas.dispatchEvent(invalid);
+check('nonfinite sample ignored',drawing.points.length===1);emit('pointerup',208,100,100,202);
+preferences.smoothing=70;emit('pointerdown',209,100,100,210);emit('pointermove',209,104,104,211);emit('pointerup',209,105,105,212);
+check('filtered stroke avoids second curve correction',book.pages[page].at(-1).filtered===true);
+emit('pointerdown',210,100,100,220,{pressure:.2});emit('pointermove',210,110,100,221,{pressure:.9});emit('pointerup',210,110,100,222,{pressure:0});
+check('Pencil pressure retained',book.pages[page].at(-1).pressure&&Math.abs(book.pages[page].at(-1).points[0].p-.2)<1e-6&&Math.abs(book.pages[page].at(-1).points[1].p-.9)<1e-6);
+const savedPage=book.pages[page];
+book.pages[page]=[{filtered:true,tool:'pen',color:'#222222',width:4,smoothing:70,points:[{x:100,y:100},{x:120,y:120}]},{filtered:true,tool:'pen',color:'#222222',width:4,smoothing:70,points:[{x:300,y:100}]}];paint();
+check('no rendered bridge between strokes',ctx.getImageData(400,200,10,10).data.every(v=>v===0));
+book.pages[page].push({filtered:true,tool:'eraser',color:'#222222',width:20,points:[{x:100,y:100},{x:120,y:120}]});paint();
+check('pixel eraser removes new ink',ctx.getImageData(218,218,4,4).data.every(v=>v===0));
+book.pages[page]=savedPage;paint();
+for(const mode of Object.keys(correctionLevels)){$('correctionMode').value=mode;$('correctionMode').dispatchEvent(new Event('change'));check('correction preset '+mode,preferences.smoothing===correctionLevels[mode])}
+$('stabilization').value='30';$('stabilization').dispatchEvent(new Event('input'));
+check('stabilization saved',JSON.parse(localStorage.getItem('notepad-preferences')).stabilization===30);
+check('line preview rendered',$('linePreview').getContext('2d').getImageData(0,0,520,100).data.some(v=>v>0));
+preferences.stabilization=0;preferences.smoothing=originalSmoothing;syncCorrection();
+
 const count=book.pages[page].length;$('undo').click();check('undo',book.pages[page].length===count-1);$('redo').click();check('redo',book.pages[page].length===count);
 pointer('pointerdown',8);$('addPage').click();check('switch preserves original page',page===1&&book.pages[0].length===count+1&&book.pages[1].length===0);
 await save();check('IndexedDB ink round trip',(await NotepadStore.read()).books[0].pages[0].length===count+1);

@@ -6,8 +6,9 @@ let book,page=0,tool='pen',drawing=null,redo=[];
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),W=794;
 let H=1123;
 const paperColors={white:'#ffffff',cream:'#fff6df',gray:'#30343d',black:'#101114'};
-let preferences={theme:'system',buttonSize:'normal',toolbarPosition:'top',showSidebar:true,compact:false,penType:'regular',smoothing:35,opacity:100,color:'#222222',width:3,eraserMode:'pixel'};
+let preferences={theme:'system',buttonSize:'normal',toolbarPosition:'top',showSidebar:true,compact:false,penType:'regular',smoothing:20,stabilization:0,opacity:100,color:'#222222',width:3,eraserMode:'pixel'};
 try{preferences={...preferences,...JSON.parse(localStorage.getItem('notepad-preferences')||'{}')}}catch{}
+if(!Number.isFinite(preferences.stabilization))preferences.stabilization=0;
 const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
 function applyPreferences(){
   document.documentElement.dataset.theme=preferences.theme==='system'?(systemTheme.matches?'dark':'light'):preferences.theme;
@@ -29,10 +30,25 @@ applyPreferences();
 const writingControls=document.createElement('div');
 writingControls.innerHTML='<label>Цвет пера<input type="color" id="settingsColor" value="#222222"></label><label>Толщина пера<input type="range" id="settingsWidth" min="1" max="25" value="3"></label><label>Ручка<select id="penType"><option value="regular">Обычная</option><option value="ballpoint">Шариковая</option><option value="gel">Гелевая</option><option value="fountain">Перьевая</option></select></label><label>Сглаживание (0 — выключено)<input id="smoothing" type="range" min="0" max="85" value="35"></label><label>Прозрачность (100 — непрозрачно)<input id="opacity" type="range" min="5" max="100" value="100"></label><label>Ластик<select id="eraserMode"><option value="pixel">Стирать участки</option><option value="stroke">Удалять целый штрих</option></select></label><p class="hint">Цвет и толщина также доступны на панели инструментов. Давление учитывается, когда браузер передаёт его для пера; для пальца толщина постоянная.</p>';
 $('writingSettings').append(writingControls);
+const correctionControls=document.createElement('div');
+correctionControls.innerHTML='<label>Обработка почерка<select id="correctionMode"><option value="none">Без коррекции</option><option value="light">Лёгкое сглаживание</option><option value="balanced">Сбалансированное</option><option value="strong">Сильное</option></select></label><label>Стабилизация<input id="stabilization" type="range" min="0" max="60" value="0"></label><p class="hint">Стабилизация уменьшает дрожание, но усиливает отставание линии. Коррекция не предсказывает продолжение штриха.</p><canvas id="linePreview" width="520" height="100" aria-label="Предпросмотр линии"></canvas>';
+writingControls.append(correctionControls);
+const correctionLevels={none:0,light:20,balanced:45,strong:70};
+function updateLinePreview(){
+  const preview=$('linePreview'),c=preview.getContext('2d');c.clearRect(0,0,520,100);
+  c.strokeStyle=preferences.color;c.lineWidth=preferences.width;c.lineCap='round';c.lineJoin='round';c.beginPath();
+  let previous=null;
+  for(let x=12;x<508;x+=3){const raw={x,y:50+22*Math.sin(x/32)+3*Math.sin(x*1.7)};const point=filterPoint(raw,previous,preferences.smoothing,preferences.stabilization);if(previous)c.lineTo(point.x,point.y);else c.moveTo(point.x,point.y);previous=point}c.stroke();
+}
+function syncCorrection(){const value=Number(preferences.smoothing);$('correctionMode').value=value===0?'none':value<=25?'light':value<=55?'balanced':'strong';updateLinePreview()}
+$('correctionMode').onchange=()=>{$('smoothing').value=correctionLevels[$('correctionMode').value];$('smoothing').dispatchEvent(new Event('input'))};
+$('stabilization').value=preferences.stabilization;
+$('stabilization').oninput=()=>{preferences.stabilization=Number($('stabilization').value);try{localStorage.setItem('notepad-preferences',JSON.stringify(preferences))}catch{}updateLinePreview()};
 for(const id of ['penType','smoothing','opacity','color','width','eraserMode']){
   $(id).value=preferences[id];
-  $(id).oninput=()=>{preferences[id]=['smoothing','opacity','width'].includes(id)?Number($(id).value):$(id).value;try{localStorage.setItem('notepad-preferences',JSON.stringify(preferences))}catch{}};
+  $(id).oninput=()=>{preferences[id]=['smoothing','opacity','width'].includes(id)?Number($(id).value):$(id).value;try{localStorage.setItem('notepad-preferences',JSON.stringify(preferences))}catch{}syncCorrection()};
 }
+syncCorrection();
 canvas.width=W*2;canvas.height=H*2;ctx.scale(2,2);
 let storageReady=false,storageFailed=false;
 function save(){
@@ -54,7 +70,7 @@ function stroke(s){
   if((!s.pressure&&s.penType!=='fountain')||s.tool!=='pen'){
     ink.lineWidth=s.width*factor;ink.beginPath();ink.moveTo(pts[0].x,pts[0].y);
     if(pts.length===1){ink.lineTo(pts[0].x+.01,pts[0].y+.01)}
-    else if(s.smoothing>0){for(let i=1;i<pts.length-1;i++)ink.quadraticCurveTo(pts[i].x,pts[i].y,(pts[i].x+pts[i+1].x)/2,(pts[i].y+pts[i+1].y)/2);ink.lineTo(pts.at(-1).x,pts.at(-1).y)}
+    else if(s.smoothing>0&&!s.filtered){for(let i=1;i<pts.length-1;i++)ink.quadraticCurveTo(pts[i].x,pts[i].y,(pts[i].x+pts[i+1].x)/2,(pts[i].y+pts[i+1].y)/2);ink.lineTo(pts.at(-1).x,pts.at(-1).y)}
     else for(let i=1;i<pts.length;i++)ink.lineTo(pts[i].x,pts[i].y);
     ink.stroke();
   }else{
@@ -104,13 +120,30 @@ function render(){renderBooks();$('bookTitle').textContent=book.name;$('paper').
   $('page').style.setProperty('--rule',['gray','black'].includes(book.paperColor)?'#596273':'#dce7f6');
   $('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();updateBackground();autosave()}
 function pos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H,p:e.pointerType==='pen'&&e.pressure>0?e.pressure:.5}}
-function appendPoint(e,endpoint=false){
-  const point=pos(e),last=drawing.points.at(-1);
-  if(endpoint&&activeType==='pen'&&!e.pressure)point.p=last.p;
-  if(!endpoint&&drawing.smoothing>0){const distance=Math.hypot(point.x-last.x,point.y-last.y);const weight=Math.max(1-drawing.smoothing/100,Math.min(1,distance/18));point.x=last.x+(point.x-last.x)*weight;point.y=last.y+(point.y-last.y)*weight;point.p=(last.p??.5)*.3+point.p*.7}
-  drawing.points.push(point);
+function filterPoint(point,last,smoothing,stabilization){
+  if(!last)return {...point};
+  const distance=Math.hypot(point.x-last.x,point.y-last.y);
+  const strength=Math.min(.85,Math.max(0,smoothing)/100+Math.max(0,stabilization)/200);
+  const weight=Math.max(1-strength,Math.min(1,distance/18));
+  return {...point,x:last.x+(point.x-last.x)*weight,y:last.y+(point.y-last.y)*weight};
 }
-let activePointer=null,activeType=null,frame=null,strokePage=null;
+function validPosition(e){
+  const r=canvas.getBoundingClientRect();
+  return Number.isFinite(e.clientX)&&Number.isFinite(e.clientY)&&r.width>0&&r.height>0;
+}
+let activePointer=null,activeType=null,frame=null,strokePage=null,lastSample=null;
+function appendPoint(e,endpoint=false){
+  if(!drawing||e.pointerId!==activePointer||e.pointerType!==activeType||!validPosition(e)||!Number.isFinite(e.timeStamp)||e.timeStamp<lastSample.time)return;
+  const distance=Math.hypot(e.clientX-lastSample.x,e.clientY-lastSample.y);
+  if(distance===0)return;
+  const elapsed=Math.min(50,Math.max(0,e.timeStamp-lastSample.time));
+  // A release is not a new movement sample: never chase a distant lift-off coordinate.
+  if(distance>(endpoint?32:Math.max(160,elapsed*6))){if(!endpoint)finish();return}
+  const point=pos(e),last=drawing.points.at(-1);
+  if(endpoint)point.p=last.p;
+  drawing.points.push(filterPoint(point,last,drawing.smoothing,drawing.stabilization));
+  lastSample={x:e.clientX,y:e.clientY,time:e.timeStamp};
+}
 const inputModeControl=document.createElement('label');
 inputModeControl.innerHTML='Ввод <select id="inputMode"><option value="any">Любой стилус и палец</option><option value="stylus">Только стилус, если устройство позволяет его определить</option><option value="pencil">Apple Pencil</option></select>';
 $('toolbar').append(inputModeControl);
@@ -127,11 +160,12 @@ function finish(){
   if(!drawing)return;
   const pointer=activePointer;
   if(drawing.tool==='stroke-eraser')drawing.targets=erasedTargets(drawing,strokePage);
-  strokePage.push(drawing);drawing=null;activePointer=null;activeType=null;strokePage=null;redo=[];
+  strokePage.push(drawing);drawing=null;activePointer=null;activeType=null;strokePage=null;lastSample=null;redo=[];
   if(canvas.hasPointerCapture(pointer))canvas.releasePointerCapture(pointer);
   render();
 }
 canvas.addEventListener('pointerdown',e=>{
+  if(!validPosition(e)||!Number.isFinite(e.timeStamp)||!['touch','pen','mouse'].includes(e.pointerType))return;
   if(e.pointerType==='mouse'&&e.button!==0)return;
   if($('inputMode').value!=='any'&&e.pointerType!=='pen')return;
   if(drawing){
@@ -142,20 +176,24 @@ canvas.addEventListener('pointerdown',e=>{
     if(canvas.hasPointerCapture(pointer))canvas.releasePointerCapture(pointer);
   }
   e.preventDefault();activePointer=e.pointerId;activeType=e.pointerType;
-  strokePage=book.pages[page];canvas.setPointerCapture(e.pointerId);
-  drawing={tool,color:$('color').value,width:Number($('width').value)*(tool==='pen'?1:5),penType:preferences.penType,smoothing:preferences.smoothing,opacity:preferences.opacity/100,pressure:e.pointerType==='pen'&&'pressure'in e,points:[pos(e)]};
+  strokePage=book.pages[page];lastSample={x:e.clientX,y:e.clientY,time:e.timeStamp};
+  try{canvas.setPointerCapture(e.pointerId)}catch{activePointer=null;activeType=null;strokePage=null;lastSample=null;return}
+  drawing={filtered:true,stabilization:preferences.stabilization,tool,color:$('color').value,width:Number($('width').value)*(tool==='pen'?1:5),penType:preferences.penType,smoothing:preferences.smoothing,opacity:preferences.opacity/100,pressure:e.pointerType==='pen'&&'pressure'in e,points:[pos(e)]};
   if(tool==='eraser'&&preferences.eraserMode==='stroke')drawing.tool='stroke-eraser';
   schedulePaint();
 });
 canvas.addEventListener('pointermove',e=>{
   if(!drawing||e.pointerId!==activePointer)return;
   e.preventDefault();
-  const samples=e.getCoalescedEvents?.();
-  for(const sample of samples?.length?samples:[e])appendPoint(sample);
+  if(e.pointerType!==activeType)return;
+  if(e.pointerType==='mouse'&&e.buttons===0){finish();return}
+  let samples=[];try{samples=e.getCoalescedEvents?.()||[]}catch{}
+  samples=[...samples,e].filter(sample=>sample.pointerId===activePointer&&sample.pointerType===activeType&&Number.isFinite(sample.timeStamp)&&sample.timeStamp<=e.timeStamp).sort((a,b)=>a.timeStamp-b.timeStamp);
+  for(const sample of samples){if(!drawing)break;appendPoint(sample)}
   schedulePaint();
 });
 canvas.addEventListener('pointerup',e=>{
-  if(e.pointerId!==activePointer)return;
+  if(e.pointerId!==activePointer||e.pointerType!==activeType)return;
   appendPoint(e,true);finish();
 });
 for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(e.pointerId===activePointer)finish()});
@@ -167,6 +205,7 @@ canvas.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 document.addEventListener('click',e=>{if(!canvas.contains(e.target))finish()},true);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)finish()});
 window.addEventListener('pagehide',finish);
+window.addEventListener('blur',finish);
 document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.tool;document.querySelectorAll('.tool').forEach(x=>x.classList.toggle('active',x===b))});
 $('undo').onclick=()=>{const s=book.pages[page].pop();if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s)book.pages[page].push(s);render()};
 $('clear').onclick=()=>{if(confirm('Очистить текущую страницу?')){book.pages[page]=[];redo=[];render()}};
