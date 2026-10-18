@@ -1,0 +1,28 @@
+async function runShapeTests(check) {
+  const originalBook=book,originalPage=page;
+  const gallery={id:'shape-gallery',name:'Фигуры 2.1',paper:'blank',pages:[[]]};data.books.push(gallery);data.selected=gallery.id;page=0;render();PageView.fit();
+  const near=(a,b)=>Math.abs(a-b)<.001;
+  for(const format of ['a4','a5','square'])for(const reverse of [false,true]){
+    const notebook={pageSize:format},a=reverse?{x:240,y:260}:{x:100,y:100},b=reverse?{x:100,y:100}:{x:240,y:260};
+    const pts=Shapes.points('circle',a,b,notebook),bounds=Shapes.bounds({points:pts}),scale=Paper.geometry(notebook).outputHeight/H,cx=(bounds.x+bounds.right)/2,cy=(bounds.y+bounds.bottom)/2;
+    const radii=pts.map(p=>Math.hypot(p.x-cx,(p.y-cy)*scale));
+    check('circle is circular '+format+' reverse '+reverse,Math.max(...radii)-Math.min(...radii)<.001&&near(bounds.right-bounds.x,(bounds.bottom-bounds.y)*scale));
+  }
+  const ellipse=Shapes.bounds({points:Shapes.points('ellipse',{x:10,y:20},{x:150,y:70},gallery)});check('ellipse keeps independent axes',near(ellipse.right-ellipse.x,140)&&near(ellipse.bottom-ellipse.y,50));
+  function pointer(type,id,p,target=canvas){const r=canvas.getBoundingClientRect();target.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType:'touch',clientX:r.left+p.x/W*r.width,clientY:r.top+p.y/H*r.height,button:0,buttons:type==='pointerup'?0:1,bubbles:true,cancelable:true}))}
+  function configure(kind){$('drawShape').click();check('shape editor opens from UI '+kind,$('shapeDialog').open);$('shapeKind').value=kind;$('shapeColor').value='#c02040';$('shapeWidth').value='4';$('shapeOpacity').value='100';$('shapeFillEnabled').checked=true;$('shapeFill').value='#ecadbc';$('applyShape').click()}
+  configure('circle');pointer('pointerdown',900,{x:100,y:100});pointer('pointermove',900,{x:140,y:160});pointer('pointermove',900,{x:180,y:150});
+  check('shape preview retains fixed anchor',near(drawing.shapeStart.x,100)&&near(drawing.shapeStart.y,100)&&drawing.points.every((p,i)=>{const expected=Shapes.points('circle',{x:100,y:100},{x:180,y:150},gallery)[i];return near(p.x,expected.x)&&near(p.y,expected.y)})&&gallery.pages[0].length===0);paint();check('filled shape preview is visible',ctx.getImageData(270,270,1,1).data[3]>0);pointer('pointerup',900,{x:180,y:150});
+  const original=structuredClone(gallery.pages[0][0]);$('selectShape').click();pointer('pointerdown',901,{x:140,y:140});pointer('pointermove',901,{x:160,y:170});pointer('pointerup',901,{x:160,y:170});
+  let shape=Shapes.resolve(gallery.pages[0],false)[0];check('selected shape moves as one object',near(shape.points[0].x,original.points[0].x+20)&&near(shape.points[0].y,original.points[0].y+30));
+  $('undo').click();check('shape move undo',JSON.stringify(Shapes.resolve(gallery.pages[0],false)[0])===JSON.stringify(original));$('redo').click();check('shape move redo',near(Shapes.resolve(gallery.pages[0],false)[0].points[0].x,original.points[0].x+20));
+  let b=Shapes.bounds(Shapes.resolve(gallery.pages[0],false)[0]);pointer('pointerdown',902,{x:b.right,y:b.bottom},$('resizeShape'));pointer('pointermove',902,{x:b.right+40,y:b.bottom+10});pointer('pointerup',902,{x:b.right+40,y:b.bottom+10});b=Shapes.bounds(Shapes.resolve(gallery.pages[0],false)[0]);check('circle resize remains circular',near(b.right-b.x,b.bottom-b.y));
+  const beforeCancel=JSON.stringify(gallery.pages[0]);pointer('pointerdown',903,{x:(b.x+b.right)/2,y:(b.y+b.bottom)/2});pointer('pointermove',903,{x:300,y:300});pointer('pointercancel',903,{x:300,y:300});check('cancelled object move keeps original',JSON.stringify(gallery.pages[0])===beforeCancel);
+  $('editShape').click();$('shapeFill').value='#e0a0b0';$('applyShape').click();check('shape property editing works',Shapes.resolve(gallery.pages[0],false)[0].fill==='#e0a0b0');$('deleteShape').click();check('shape deletion works',Shapes.resolve(gallery.pages[0],false)[0]===null);$('undo').click();check('shape deletion undo',Shapes.resolve(gallery.pages[0],false)[0]?.fill==='#e0a0b0');
+  for(const kind of Shapes.kinds.filter(kind=>kind!=='circle')){gallery.pages.push([]);page=gallery.pages.length-1;render();PageView.setZoom(2);configure(kind);pointer('pointerdown',904,{x:100,y:100});pointer('pointermove',904,{x:260,y:210});pointer('pointerup',904,{x:260,y:210});check('shape tool stores '+kind,gallery.pages[page][0]?.shape===kind&&gallery.pages[page][0].points.length>=2)}
+  const exports=[];for(let i=0;i<gallery.pages.length;i++){const target=await Documents.compose(gallery,i),pixels=target.getContext('2d').getImageData(0,0,target.width,target.height).data;let ink=false;for(let j=0;j<pixels.length;j+=4)if(pixels[j]>130&&pixels[j+1]<100){ink=true;break}check('shape exported page '+i,ink);exports.push(target.toDataURL())}
+  localStorage.setItem('test-shapes-export',JSON.stringify(exports));await save();check('all shapes stored in IndexedDB',(await NotepadStore.read()).books.find(b=>b.id===gallery.id).pages.length===Shapes.kinds.length);
+  const parsed=await Backups.parse(JSON.stringify(await Backups.create({books:[gallery],selected:gallery.id},preferences)));check('shape edits survive backup round trip',JSON.stringify(parsed.library.books[0].pages)===JSON.stringify(gallery.pages));
+  const invalid=structuredClone(parsed.library);invalid.books[0].pages[0].push({type:'shape-edit',target:999,value:null});let rejected=false;try{Backups.validateLibrary(invalid)}catch{rejected=true}check('invalid shape edits rejected',rejected);
+  ShapeTools.clear();data.selected=originalBook.id;page=originalPage;Editor.choose('pen');render();PageView.fit();await save();
+}

@@ -27,7 +27,7 @@ const PageView=(()=>{
     if(e.pointerType==='pen'&&!gesture)touches.clear();
     if(e.pointerType==='touch')touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(e.pointerType==='touch'&&touches.size>=2&&activeType!=='pen'){
-      discardInk();for(const id of touches.keys())blocked.add(id);const c=center();gesture={type:'pinch',...c,zoom};e.preventDefault();e.stopImmediatePropagation();
+      discardInk();document.dispatchEvent(new Event('notepad:gesture-start'));for(const id of touches.keys())blocked.add(id);const c=center();gesture={type:'pinch',...c,zoom};e.preventDefault();e.stopImmediatePropagation();
     }else if(tool==='hand'){
       blocked.add(e.pointerId);gesture={type:'pan',id:e.pointerId,x:e.clientX,y:e.clientY};e.preventDefault();e.stopImmediatePropagation();
     }else if(blocked.size||gesture){blocked.add(e.pointerId);e.stopImmediatePropagation()}

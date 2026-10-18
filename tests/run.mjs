@@ -1,3 +1,4 @@
+import {verifyShapeUI} from './interaction.mjs';
 ﻿import http from 'node:http';
 import {readFile,writeFile,mkdtemp,mkdir} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
@@ -8,7 +9,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const index=await readFile(resolve(root,'index.html'),'utf8');
 const tests=await readFile(resolve(root,'tests/critical.js'),'utf8');
 const legacySeed='<script>localStorage.setItem("ipad-notebooks-v1",JSON.stringify({selected:"legacy",books:[{id:"legacy",name:"Старый конспект",paper:"grid",pages:[[{tool:"pen",color:"#222222",width:3,points:[{x:20,y:20},{x:30,y:30}]}]]}]}));</script>';
-const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/interface.js"></script><script src="tests/paper.js"></script><script src="tests/critical.js"></script>');
+const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/interface.js"></script><script src="tests/paper.js"></script><script src="tests/shapes.js"></script><script src="tests/critical.js"></script>');
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.wasm':'application/wasm','.svg':'image/svg+xml','.pdf':'application/pdf'};
 const server=http.createServer(async(req,res)=>{
  try{
@@ -71,10 +72,12 @@ try{
        console.log('PASS library '+pointerType+' input '+width+'x'+height);
      }
    }
+   await verifyShapeUI(call);
+   await call('Runtime.evaluate',{expression:'save()',awaitPromise:true,returnByValue:true});
    if(process.env.SCREENSHOT_DIR){
      await mkdir(process.env.SCREENSHOT_DIR,{recursive:true});await call('Emulation.setDeviceMetricsOverride',{width:1024,height:1366,deviceScaleFactor:1,mobile:true});
      const capture=async name=>{await sleep(200);const result=await call('Page.captureScreenshot',{format:'png'});await writeFile(resolve(process.env.SCREENSHOT_DIR,name),Buffer.from(result.result.data,'base64'))};
-     await capture('ipad-dark.png');await call('Runtime.evaluate',{expression:'document.getElementById("openSettings").click()'});await capture('ipad-settings.png');await call('Runtime.evaluate',{expression:'document.getElementById("settingsDialog").close();preferences.theme="light";applyPreferences()'});await capture('ipad-light.png');
+     await capture('ipad-dark.png');await call('Runtime.evaluate',{expression:'document.getElementById("openSettings").click()'});await capture('ipad-settings.png');await call('Runtime.evaluate',{expression:'document.getElementById("settingsDialog").close();preferences.theme="light";applyPreferences()'});await capture('ipad-light.png');await call('Runtime.evaluate',{expression:'document.getElementById("drawShape").click()'});await capture('shape-dialog.png');await call('Runtime.evaluate',{expression:'document.getElementById("closeShapes").click()'});
      await call('Runtime.evaluate',{expression:'document.getElementById("toggleSidebar").click()'});await capture('ipad-library.png');await call('Runtime.evaluate',{expression:'Sidebar.close();document.getElementById("extraTools").open=true'});await capture('ipad-tools.png');await call('Runtime.evaluate',{expression:'document.getElementById("extraTools").open=false;document.getElementById("focusMode").click()'});await capture('ipad-focus.png');await call('Runtime.evaluate',{expression:'document.getElementById("focusMode").click()'});
      await call('Emulation.setDeviceMetricsOverride',{width:512,height:1024,deviceScaleFactor:1,mobile:true});await capture('split-view.png');await call('Runtime.evaluate',{expression:'document.getElementById("toggleSidebar").click()'});await capture('split-library.png');await call('Runtime.evaluate',{expression:'Sidebar.close()'});await call('Emulation.setDeviceMetricsOverride',{width:1024,height:768,deviceScaleFactor:1,mobile:true});await call('Runtime.evaluate',{expression:'document.getElementById("toggleSidebar").click()'});await capture('landscape-library.png');await call('Runtime.evaluate',{expression:'Sidebar.close()'});
    }
@@ -84,6 +87,7 @@ try{
    await call('Page.navigate',{url:`http://127.0.0.1:${port}/index.html`});await sleep(250);await waitForStorage();
    const offlinePDF=await call('Runtime.evaluate',{expression:'Documents.pdfjs().then(module=>typeof module.getDocument==="function")',awaitPromise:true,returnByValue:true});
    if(!offlinePDF.result?.result?.value)throw new Error('PDF library unavailable offline');
+   const shapeRoundTrip=await call('Runtime.evaluate',{expression:'(async()=>{const b=data.books.find(b=>b.id==="shape-gallery"),expected=JSON.parse(localStorage.getItem("test-shapes-export"));for(let i=0;i<b.pages.length;i++)if((await Documents.compose(b,i)).toDataURL()!==expected[i])return false;return true})()',awaitPromise:true,returnByValue:true});if(!shapeRoundTrip.result?.result?.value)throw new Error('Shape reopening or export changed');console.log('PASS all shapes reopen and export offline');
    console.log('PASS PWA and PDF library load offline');
    const offlinePaper=await call('Runtime.evaluate',{expression:'(async()=>{const b=data.books.find(b=>b.id==="paper-persist");return (await Documents.compose(b,0)).toDataURL()===localStorage.getItem("test-paper-export")})()',awaitPromise:true,returnByValue:true});if(!offlinePaper.result?.result?.value)throw new Error('Paper unavailable offline');console.log('PASS grid and annotated export work offline');
    const offlineUI=await call('Runtime.evaluate',{expression:'(()=>{document.getElementById("toggleSidebar").click();const ok=Sidebar.open&&!!document.querySelector("#toggleSidebar svg");Sidebar.close();return ok})()',returnByValue:true});if(!offlineUI.result?.result?.value)throw new Error('Redesigned UI unavailable offline');console.log('PASS library and SVG icons work offline');

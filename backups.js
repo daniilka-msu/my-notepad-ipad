@@ -2,6 +2,7 @@
 const Backups=(()=>{
   const isObject=value=>value&&typeof value==='object'&&!Array.isArray(value);
   const finite=value=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<1e8;
+  function validShape(s){return isObject(s)&&s.type===undefined&&Shapes.kinds.includes(s.shape)&&s.tool==='pen'&&finite(s.width)&&s.width>0&&s.width<=1000&&/^#[0-9a-f]{6}$/i.test(s.color)&&Array.isArray(s.points)&&s.points.length<=1000&&s.points.every(p=>isObject(p)&&finite(p.x)&&finite(p.y))&&(s.opacity===undefined||(finite(s.opacity)&&s.opacity>=0&&s.opacity<=1))&&(s.fill==null||/^#[0-9a-f]{6}$/i.test(s.fill))&&['shapeStart','shapeEnd'].every(key=>s[key]===undefined||(isObject(s[key])&&finite(s[key].x)&&finite(s[key].y)))}
   function validateLibrary(library){
     if(!isObject(library)||!Array.isArray(library.books)||!library.books.length)throw new Error('Нет тетрадей в резервной копии');
     const ids=new Set();
@@ -15,6 +16,8 @@ const Backups=(()=>{
       for(const bg of b.backgrounds||[])if(bg!==null&&(!isObject(bg)||typeof bg.id!=='string'||!finite(bg.width)||bg.width<=0||!finite(bg.height)||bg.height<=0||(bg.text!==undefined&&typeof bg.text!=='string')))throw new Error('Повреждён фон страницы');
       for(const items of b.pages){if(!Array.isArray(items))throw new Error('Повреждена страница');for(const [index,s]of items.entries()){
         if(!isObject(s))throw new Error('Повреждён штрих');
+        if(s.type==='shape-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!items[s.target].shape||(s.value!==null&&!validShape(s.value)))throw new Error('Повреждено изменение фигуры');continue}
+        if(s.shapeVersion===1&&!validShape(s))throw new Error('Повреждена фигура');
         if(s.type==='text'){if(typeof s.text!=='string'||s.text.length>100000||typeof s.color!=='string'||!/^#[0-9a-f]{6}$/i.test(s.color))throw new Error('Повреждён текст');continue}
         if(!['pen','marker','eraser','stroke-eraser'].includes(s.tool)||!finite(s.width)||s.width<=0||s.width>1000||typeof s.color!=='string'||!/^#[0-9a-f]{6}$/i.test(s.color)||!Array.isArray(s.points)||s.points.some(p=>!isObject(p)||!finite(p.x)||!finite(p.y)||(p.p!==undefined&&(!finite(p.p)||p.p<0||p.p>1))))throw new Error('Повреждена траектория');
         if(s.opacity!==undefined&&(!finite(s.opacity)||s.opacity<0||s.opacity>1))throw new Error('Неверная прозрачность');

@@ -28,14 +28,9 @@ const Editor=(()=>{
   }
   $('favoriteColor').onclick=()=>{preferences.favoriteColors=[...new Set([...(preferences.favoriteColors||['#222222','#365ecc','#c03943','#23856b']),$('color').value])].slice(-10);persist();favorites()};
   $('savePreset').onclick=()=>{preferences.penPresets=[...(preferences.penPresets||[]),{color:preferences.color,width:preferences.width,penType:preferences.penType,opacity:preferences.opacity}].slice(-6);persist();favorites()};
-  function choose(value){finish();tool=value;document.querySelectorAll('.tool').forEach(b=>{const active=b.dataset.tool===value;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))});canvas.style.cursor=value==='hand'?'grab':'crosshair'}
+  function choose(value){finish();tool=value;document.querySelectorAll('.tool').forEach(b=>{const active=b.dataset.tool===value;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))});canvas.style.cursor=value==='hand'?'grab':'crosshair';document.dispatchEvent(new Event('notepad:tool'))}
   document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>choose(b.dataset.tool));
   document.querySelectorAll('button[aria-label]').forEach(b=>b.title=b.getAttribute('aria-label'));
   favorites();renderBooks();return {choose,go,persist};
 })();
-function shapePoints(kind,a,b){
-  if(kind==='rect')return [a,{x:b.x,y:a.y},b,{x:a.x,y:b.y},a].map(p=>({...p,p:.5}));
-  if(kind==='ellipse'){const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2,rx=Math.abs(b.x-a.x)/2,ry=Math.abs(b.y-a.y)/2;return Array.from({length:65},(_,i)=>({x:cx+rx*Math.cos(i*Math.PI/32),y:cy+ry*Math.sin(i*Math.PI/32),p:.5}))}
-  if(kind==='arrow'){const angle=Math.atan2(b.y-a.y,b.x-a.x),length=Math.min(20,Math.hypot(b.x-a.x,b.y-a.y)*.3);return [a,b,{x:b.x-length*Math.cos(angle-.5),y:b.y-length*Math.sin(angle-.5)},b,{x:b.x-length*Math.cos(angle+.5),y:b.y-length*Math.sin(angle+.5)}].map(p=>({...p,p:.5}))}
-  return [a,b].map(p=>({...p,p:.5}));
-}
+function shapePoints(kind,a,b){return Shapes.points(kind,a,b,book)}
