@@ -2,7 +2,8 @@
 const NotepadStore=(()=>{
   let database;
   function request(req){return new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
-  function complete(tx){return new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error||new Error('Операция хранения отменена'));tx.onerror=()=>reject(tx.error)})}
+  function complete(tx){return new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error||new Error('Операция хранения отменена'));tx.onerror=()=>reject(tx.error||new Error('Не удалось записать данные на устройство'))})}
+  async function portableAssets(entries){return Promise.all(entries.map(async([id,value])=>[id,value instanceof Blob?{notepadAsset:1,type:value.type,bytes:await value.arrayBuffer()}:value]))}
   async function open(){
     if(!('indexedDB'in window))throw new Error('IndexedDB недоступна');
     const req=indexedDB.open('my-notepad',1);
@@ -10,8 +11,8 @@ const NotepadStore=(()=>{
     database=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);req.onblocked=()=>reject(new Error('Закройте другие вкладки приложения и повторите'))});database.onversionchange=()=>database.close();
   }
   async function read(){return request(database.transaction('library').objectStore('library').get('current'))}
-  async function write(value,assets=[]){const tx=database.transaction(['library','assets'],'readwrite');const done=complete(tx);for(const [id,blob]of assets)tx.objectStore('assets').put(blob,id);tx.objectStore('library').put(value,'current');await done}
-  async function asset(id){return request(database.transaction('assets').objectStore('assets').get(id))}
-  async function putAssets(entries){const tx=database.transaction('assets','readwrite');const done=complete(tx);for(const [id,value]of entries)tx.objectStore('assets').put(value,id);await done}
+  async function write(value,assets=[]){const portable=await portableAssets(assets);const tx=database.transaction(['library','assets'],'readwrite');const done=complete(tx);for(const [id,blob]of portable)tx.objectStore('assets').put(blob,id);tx.objectStore('library').put(value,'current');await done}
+  async function asset(id){const value=await request(database.transaction('assets').objectStore('assets').get(id));return value?.notepadAsset===1&&value.bytes instanceof ArrayBuffer?new Blob([value.bytes],{type:value.type}):value}
+  async function putAssets(entries){const portable=await portableAssets(entries);const tx=database.transaction('assets','readwrite');const done=complete(tx);for(const [id,value]of portable)tx.objectStore('assets').put(value,id);await done}
   return {open,read,write,asset,putAssets};
 })();

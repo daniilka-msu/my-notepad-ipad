@@ -41,8 +41,12 @@ const Shapes = (() => {
   function render(context, shape, notebook = {}) {
     const scale=Paper.geometry(notebook).outputHeight/1123;
     context.save();context.scale(1,1/scale);context.globalAlpha=shape.opacity??1;context.strokeStyle=shape.color;context.fillStyle=shape.fill||'transparent';context.lineWidth=shape.width;context.lineCap='round';context.lineJoin='round';
-    if(shape.shape==='dashed')context.setLineDash([shape.width*3,shape.width*2]);
-    context.beginPath();for(const [i,p]of shape.points.entries()){if(i)context.lineTo(p.x,p.y*scale);else context.moveTo(p.x,p.y*scale)}
+    if(shape.dash==='dotted')context.setLineDash([shape.width,shape.width*2]);else if(shape.dash==='dashed'||shape.shape==='dashed')context.setLineDash([shape.width*3,shape.width*2]);
+    context.beginPath();
+    if(shape.shape==='rect'&&shape.radius>0&&shape.points.length===5){
+      const vertices=shape.points.slice(0,4).map(p=>({x:p.x,y:p.y*scale}));
+      for(let i=0;i<4;i++){const p=vertices[i],a=vertices[(i+3)%4],b=vertices[(i+1)%4],la=Math.hypot(a.x-p.x,a.y-p.y),lb=Math.hypot(b.x-p.x,b.y-p.y),r=Math.min(shape.radius,la/2,lb/2),entry={x:p.x+(a.x-p.x)*r/(la||1),y:p.y+(a.y-p.y)*r/(la||1)},exit={x:p.x+(b.x-p.x)*r/(lb||1),y:p.y+(b.y-p.y)*r/(lb||1)};if(i)context.lineTo(entry.x,entry.y);else context.moveTo(entry.x,entry.y);context.quadraticCurveTo(p.x,p.y,exit.x,exit.y)}
+    }else for(const [i,p]of shape.points.entries()){if(i)context.lineTo(p.x,p.y*scale);else context.moveTo(p.x,p.y*scale)}
     if(closed.has(shape.shape)){context.closePath();if(shape.fill)context.fill()}context.stroke();context.restore();
   }
   function bounds(shape) {

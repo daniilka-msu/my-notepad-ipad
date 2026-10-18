@@ -22,7 +22,7 @@ const ShapeTools = (() => {
   $('shapeForm').onsubmit=e=>{
     e.preventDefault();const style={shape:select.value,color:$('shapeColor').value,width:Number($('shapeWidth').value),opacity:Number($('shapeOpacity').value)/100,fill:$('shapeFillEnabled').checked&&Shapes.closed.has(select.value)?$('shapeFill').value:null,shapeVersion:1};
     if(editing&&current()){
-      const old=current(),b=Shapes.bounds(old),start=old.shapeStart||{x:b.x,y:b.y},end=old.shapeEnd||{x:b.right,y:b.bottom};commit({...old,...style,shapeStart:start,shapeEnd:end,points:Shapes.points(style.shape,start,end,book)});
+      const old=current(),b=Shapes.bounds(old),start=old.shapeStart||{x:b.x,y:b.y},end=old.shapeEnd||{x:b.right,y:b.bottom};commit({...old,...style,shapeStart:start,shapeEnd:end,points:old.shape===style.shape?old.points:Shapes.points(style.shape,start,end,book)});
     }else{preferences.shapeKind=style.shape;preferences.shapeColor=style.color;preferences.shapeWidth=style.width;preferences.shapeOpacity=Number($('shapeOpacity').value);preferences.shapeFilled=!!style.fill;preferences.shapeFill=$('shapeFill').value;Editor.persist();Editor.choose('shape')}
     dialog.close();
   };
@@ -47,5 +47,5 @@ const ShapeTools = (() => {
   for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(drag?.id===e.pointerId){cancel();e.stopImmediatePropagation()}},true);
   document.addEventListener('notepad:render',update);document.addEventListener('notepad:gesture-start',cancel);document.addEventListener('notepad:tool',()=>{if(tool!=='selectShape')clear()});window.addEventListener('blur',cancel);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancel()});
   document.addEventListener('keydown',e=>{if(document.body.classList.contains('library-open')||document.querySelector('dialog[open]')||e.target.closest?.('input,textarea,select'))return;if(e.key==='Escape')clear();if((e.key==='Delete'||e.key==='Backspace')&&current()){e.preventDefault();$('deleteShape').click()}});
-  values();return {clear,current,cancel};
+  values();return {clear,current,cancel,commit};
 })();
