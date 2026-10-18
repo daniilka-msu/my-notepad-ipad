@@ -11,7 +11,7 @@ async function runInterfaceTests(check){
   toggle.click();toggle.focus();document.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',shiftKey:true,bubbles:true,cancelable:true}));check('library traps backwards Tab',$('sidebar').contains(document.activeElement));
   $('sidebarBackdrop').click();check('backdrop closes library',!Sidebar.open&&!workspace.inert);
   toggle.click();const currentTool=tool;$('closeSidebar').focus();document.dispatchEvent(new KeyboardEvent('keydown',{key:'h',bubbles:true}));check('library blocks background shortcuts',tool===currentTool);$('closeSidebar').click();
-  toggle.click();$('sidebarSettings').click();check('library settings action closes drawer',$('settingsDialog').open&&!Sidebar.open&&!workspace.inert);$('closeSettings').click();
+  check('one primary settings entry',!$('sidebarSettings')&&!!$('openSettings'));check('settings contain all five sections',JSON.stringify([...$('settingsDialog').querySelectorAll('h3')].map(n=>n.textContent))===JSON.stringify(['Письмо','Бумага','Интерфейс','Василий','Данные']));
   $('openSettings').click();$('showSidebar').checked=true;$('showSidebar').dispatchEvent(new Event('change'));check('settings library control shares drawer state',Sidebar.open&&!$('settingsDialog').open&&toggle.getAttribute('aria-expanded')==='true');$('closeSidebar').click();
   toggle.click();$('sidebarPages').click();check('library page action opens real navigator',$('pagesDialog').open&&!Sidebar.open);$('closePages').click();
   toggle.click();$('books').querySelector('.book').click();check('notebook selection closes library',!Sidebar.open&&toggle.getAttribute('aria-expanded')==='false');

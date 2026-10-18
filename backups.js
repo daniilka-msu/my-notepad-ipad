@@ -9,6 +9,7 @@ const Backups=(()=>{
       if(!isObject(b)||typeof b.id!=='string'||ids.has(b.id)||typeof b.name!=='string'||!Array.isArray(b.pages)||!b.pages.length)throw new Error('Неверная структура тетради');
       ids.add(b.id);if(!['grid','lines','dots','blank'].includes(b.paper))throw new Error('Неизвестная разлиновка');
       if(b.paperColor&&!['white','cream','gray','black'].includes(b.paperColor))throw new Error('Неверный цвет бумаги');
+      if(b.gridMm!==undefined&&![5,7,10].includes(b.gridMm))throw new Error('Неверный размер клетки');
       if(b.pageSize&&!['a4','a5','square'].includes(b.pageSize))throw new Error('Неверный размер бумаги');
       if(b.backgrounds!==undefined&&(!Array.isArray(b.backgrounds)||b.backgrounds.length!==b.pages.length))throw new Error('Фоны не соответствуют страницам');
       for(const bg of b.backgrounds||[])if(bg!==null&&(!isObject(bg)||typeof bg.id!=='string'||!finite(bg.width)||bg.width<=0||!finite(bg.height)||bg.height<=0||(bg.text!==undefined&&typeof bg.text!=='string')))throw new Error('Повреждён фон страницы');

@@ -5,6 +5,7 @@ function pointer(type,id,x=100,y=100,pointerType='touch',extra={}){canvas.dispat
 canvas.setPointerCapture=()=>{};canvas.hasPointerCapture=()=>false;
 try{await ready;
 await runInterfaceTests(check);
+await runPaperTests(check);
 check('legacy localStorage migrated',data.books[0].id==='legacy'&&storageReady);
 check('legacy source retained',JSON.parse(localStorage.getItem(KEY)).books[0].name==='Старый конспект');
 preferences.theme='dark';applyPreferences();check('dark theme',document.documentElement.dataset.theme==='dark');preferences.theme='system';applyPreferences();check('system theme',document.documentElement.dataset.theme===(systemTheme.matches?'dark':'light'));book.paperColor='cream';render();check('paper independent of theme',$('page').style.getPropertyValue('--paper')===paperColors.cream);
@@ -106,7 +107,7 @@ let unsafeEndpoints=0;for(const url of ['https://api.openai.com/v1/responses','h
 check('Vasily has four quick actions',document.querySelectorAll('[data-prompt]').length===4);
 const realFetch=window.fetch;let sentPayload;
 window.fetch=async(url,options)=>url.endsWith('/status')?{ok:true,json:async()=>({connected:true})}:{ok:true,json:async()=>({text:'Проверочный ответ'}),...((sentPayload=JSON.parse(options.body)),{})};
-$('aiEndpoint').value='https://notes.example/api/assistant';await $('aiConnectionForm').onsubmit({preventDefault(){}});check('Vasily server connection verified',!$('sendAI').disabled);
+$('aiEndpoint').value='https://notes.example/api/assistant';await $('aiConnectionForm').onsubmit({preventDefault(){}});check('Vasily server connection verified',!$('sendAI').disabled);check('Vasily connection feedback visible in settings',$('vasilySettings').contains($('aiConnectionStatus'))&&$('aiConnectionStatus').textContent.includes('подключён через сервер'));
 $('chatInput').value='Объясни тему';await $('chatForm').onsubmit({preventDefault(){}});check('Vasily response and private defaults',$('chatMessages').textContent.includes('Проверочный ответ')&&!sentPayload.pageImage&&!sentPayload.documentText);
 window.fetch=async()=>({ok:false,status:429});$('chatInput').value='Повтори';await $('chatForm').onsubmit({preventDefault(){}});check('Vasily quota error preserves question',$('aiStatus').textContent.includes('Лимит')&&$('chatInput').value==='Повтори');
 window.fetch=async(url,options)=>new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError'))));const cancelledRequest=$('chatForm').onsubmit({preventDefault(){}});$('cancelAI').click();await cancelledRequest;check('Vasily request can be stopped',$('aiStatus').textContent.includes('остановлен')&&$('cancelAI').hidden);
@@ -146,6 +147,7 @@ const originalAlert=window.alert;window.alert=()=>{};const badTransfer=new DataT
 document.dispatchEvent(new KeyboardEvent('keydown',{key:'h',bubbles:true}));check('keyboard selects hand',tool==='hand');document.dispatchEvent(new KeyboardEvent('keydown',{key:'p',bubbles:true}));check('keyboard selects pen',tool==='pen');
 $('theme').value='dark';$('theme').dispatchEvent(new Event('change'));check('theme saved',JSON.parse(localStorage.getItem('notepad-preferences')).theme==='dark');
 $('settingsWidth').value='7';$('settingsWidth').dispatchEvent(new Event('input'));check('settings and toolbar share pen width',$('width').value==='7'&&preferences.width===7);
+const persistentPaper={id:'paper-persist',name:'Проверка сетки',paper:'grid',gridMm:7,pageSize:'square',pages:[[{tool:'pen',color:'#365ecc',width:3,points:[{x:100,y:100},{x:180,y:100}]}]]};data.books.push(persistentPaper);data.selected=persistentPaper.id;page=0;render();await save();localStorage.setItem('test-paper-export',(await Documents.compose(persistentPaper,0)).toDataURL());check('paper reopening fixture saved',(await NotepadStore.read()).books.find(b=>b.id==='paper-persist').gridMm===7);
 }catch(error){results.push('FAIL '+error.stack)}
 document.body.innerHTML='';const output=document.createElement('pre');output.id='results';output.textContent=results.join('\n');document.body.append(output);
 })();

@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id),KEY='ipad-notebooks-v1';
 const uid=()=>crypto.randomUUID?.()||String(Date.now()+Math.random());
 let data;try{data=JSON.parse(localStorage.getItem(KEY))}catch{};
-if(!data?.books?.length)data={selected:null,books:[{id:uid(),name:'Моя первая тетрадь',paper:'grid',pages:[[]]}]};
+if(!data?.books?.length)data={selected:null,books:[{id:uid(),name:'Моя первая тетрадь',paper:'grid',gridMm:5,pages:[[]]}]};
 let book,page=0,tool='pen',drawing=null,redo=[];
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),W=794;
 let H=1123;
@@ -22,7 +22,7 @@ for(const id of ['theme','buttonSize','toolbarPosition','compact']){
   const control=$(id);if(control.type==='checkbox')control.checked=preferences[id];else control.value=preferences[id];
   control.onchange=()=>{preferences[id]=control.type==='checkbox'?control.checked:control.value;applyPreferences();try{localStorage.setItem('notepad-preferences',JSON.stringify(preferences))}catch{}};
 }
-$('openSettings').onclick=()=>{$('settingsPaper').value=book.paper;$('settingsColor').value=$('color').value;$('settingsWidth').value=$('width').value;$('paperColor').value=book.paperColor||'white';$('pageSize').value=book.pageSize||'a4';$('settingsDialog').showModal()};
+$('openSettings').onclick=()=>{$('settingsPaper').value=book.paper;$('settingsColor').value=$('color').value;$('settingsWidth').value=$('width').value;$('paperColor').value=book.paperColor||'white';$('pageSize').value=book.pageSize||'a4';$('gridSize').value=book.gridMm||'legacy';$('gridSize').disabled=book.paper!=='grid';$('settingsDialog').showModal()};
 $('closeSettings').onclick=()=>$('settingsDialog').close();
 for(const id of ['paperColor','pageSize'])$(id).onchange=()=>{finish();book[id]=$(id).value;render()};
 applyPreferences();
@@ -133,7 +133,7 @@ function paint(){
 }
 function render(){renderBooks();$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;
   // Keep the original coordinate system: changing page format never rescales old notes.
-  $('page').style.aspectRatio=book.pageSize==='square'?'1':book.pageSize==='a5'?'559 / 794':'794 / 1123';
+  Paper.apply($('page'),book,page);$('gridSize').value=book.gridMm||'legacy';$('gridSize').disabled=book.paper!=='grid';
   $('page').style.setProperty('--paper',paperColors[book.paperColor]||paperColors.white);
   $('page').style.setProperty('--rule',['gray','black'].includes(book.paperColor)?'#596273':'#dce7f6');
   $('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();updateBackground();autosave()}
@@ -237,7 +237,7 @@ window.addEventListener('blur',finish);
 document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.tool;document.querySelectorAll('.tool').forEach(x=>x.classList.toggle('active',x===b))});
 $('undo').onclick=()=>{const s=book.pages[page].pop();if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s)book.pages[page].push(s);render()};
 $('clear').onclick=()=>{if(confirm('Очистить текущую страницу?')){book.pages[page].push({tool:'stroke-eraser',color:'#000000',width:1,points:[],targets:book.pages[page].map((_,i)=>i)});redo=[];render()}};
-$('newBook').onclick=()=>{const name=prompt('Название тетради:','Новая тетрадь');if(!name?.trim())return;const b={id:uid(),name:name.trim(),paper:'grid',pages:[[]]};data.books.push(b);data.selected=b.id;page=0;redo=[];render()};
+$('newBook').onclick=()=>{const name=prompt('Название тетради:','Новая тетрадь');if(!name?.trim())return;const b={id:uid(),name:name.trim(),paper:'grid',gridMm:5,pages:[[]]};data.books.push(b);data.selected=b.id;page=0;redo=[];render()};
 $('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};
 
 
@@ -326,3 +326,5 @@ $('backupInput').onchange=async e=>{
 };
 for(const [source,target]of [['settingsColor','color'],['settingsWidth','width']])$(source).oninput=()=>{$(target).value=$(source).value;$(target).dispatchEvent(new Event('input'))};
 $('settingsPaper').onchange=()=>{book.paper=$('settingsPaper').value;render()};
+
+$('gridSize').onchange=()=>{finish();if($('gridSize').value==='legacy')delete book.gridMm;else book.gridMm=Number($('gridSize').value);render()};

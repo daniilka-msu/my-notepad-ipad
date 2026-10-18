@@ -8,7 +8,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const index=await readFile(resolve(root,'index.html'),'utf8');
 const tests=await readFile(resolve(root,'tests/critical.js'),'utf8');
 const legacySeed='<script>localStorage.setItem("ipad-notebooks-v1",JSON.stringify({selected:"legacy",books:[{id:"legacy",name:"Старый конспект",paper:"grid",pages:[[{tool:"pen",color:"#222222",width:3,points:[{x:20,y:20},{x:30,y:30}]}]]}]}));</script>';
-const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/interface.js"></script><script src="tests/critical.js"></script>');
+const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/interface.js"></script><script src="tests/paper.js"></script><script src="tests/critical.js"></script>');
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.wasm':'application/wasm','.svg':'image/svg+xml','.pdf':'application/pdf'};
 const server=http.createServer(async(req,res)=>{
  try{
@@ -48,6 +48,8 @@ try{
    await waitForStorage();console.log('PASS notebooks survive reload');
    const restoredTheme=await call('Runtime.evaluate',{expression:'document.documentElement.dataset.theme==="dark"&&preferences.width===7',returnByValue:true});
    if(!restoredTheme.result?.result?.value)throw new Error('Preferences did not survive reload');console.log('PASS preferences survive reload');
+   const reopenedPaper=await call('Runtime.evaluate',{expression:'(async()=>{const b=data.books.find(b=>b.id==="paper-persist");return b.gridMm===7&&b.pageSize==="square"&&(await Documents.compose(b,0)).toDataURL()===localStorage.getItem("test-paper-export")})()',awaitPromise:true,returnByValue:true});if(!reopenedPaper.result?.result?.value)throw new Error('Paper geometry or export changed after reopening');console.log('PASS paper geometry and annotated export survive reopening');
+   const legacyPaper=await call('Runtime.evaluate',{expression:'!Object.hasOwn(data.books.find(b=>b.id==="legacy"),"gridMm")',returnByValue:true});if(!legacyPaper.result?.result?.value)throw new Error('Legacy notebook grid was changed');console.log('PASS legacy grid remains unchanged after reopening');
    for(const [width,height]of [[1024,1366],[1366,1024],[1024,768],[512,1024],[320,768]]){
      await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await sleep(150);
      const layout=await call('Runtime.evaluate',{expression:'document.documentElement.scrollWidth<=innerWidth+1&&document.getElementById("workspace").clientHeight>120&&document.getElementById("bottom").getBoundingClientRect().bottom<=innerHeight+1',returnByValue:true});
@@ -83,6 +85,7 @@ try{
    const offlinePDF=await call('Runtime.evaluate',{expression:'Documents.pdfjs().then(module=>typeof module.getDocument==="function")',awaitPromise:true,returnByValue:true});
    if(!offlinePDF.result?.result?.value)throw new Error('PDF library unavailable offline');
    console.log('PASS PWA and PDF library load offline');
+   const offlinePaper=await call('Runtime.evaluate',{expression:'(async()=>{const b=data.books.find(b=>b.id==="paper-persist");return (await Documents.compose(b,0)).toDataURL()===localStorage.getItem("test-paper-export")})()',awaitPromise:true,returnByValue:true});if(!offlinePaper.result?.result?.value)throw new Error('Paper unavailable offline');console.log('PASS grid and annotated export work offline');
    const offlineUI=await call('Runtime.evaluate',{expression:'(()=>{document.getElementById("toggleSidebar").click();const ok=Sidebar.open&&!!document.querySelector("#toggleSidebar svg");Sidebar.close();return ok})()',returnByValue:true});if(!offlineUI.result?.result?.value)throw new Error('Redesigned UI unavailable offline');console.log('PASS library and SVG icons work offline');
  }
  if(errors.length)throw new Error(errors.join('\n'));

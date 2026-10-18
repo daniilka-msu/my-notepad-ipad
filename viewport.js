@@ -7,7 +7,7 @@ const PageView=(()=>{
   const touches=new Map(),blocked=new Set();
   function layout(){
     if(!sheet.isConnected)return;
-    const ratio=sheet.style.aspectRatio==='1'?1:sheet.style.aspectRatio.includes('559')?794/559:1123/794;
+    const geometry=Paper.geometry(book||{}),ratio=geometry.outputHeight/geometry.outputWidth;
     const width=W*zoom,height=width*ratio;
     stage.style.width=Math.max(workspace.clientWidth,width+48)+'px';stage.style.height=height+48+'px';
     sheet.style.width=width+'px';sheet.style.height=height+'px';$('zoomValue').textContent=Math.round(zoom*100)+'%';
