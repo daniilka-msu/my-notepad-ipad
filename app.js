@@ -13,9 +13,15 @@ function paint(){ctx.clearRect(0,0,W,H);for(const s of book.pages[page])stroke(s
 function render(){renderBooks();$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;$('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();save()}
 function pos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H}}
 let activePointer=null,activeType=null,frame=null,strokePage=null;
-const pencilOnly=document.createElement('label');
-pencilOnly.innerHTML='<input id="pencilOnly" type="checkbox"> Только Pencil';
-$('toolbar').append(pencilOnly);
+const inputModeControl=document.createElement('label');
+inputModeControl.innerHTML='Ввод <select id="inputMode"><option value="any">Любой стилус и палец</option><option value="stylus">Только определяемый стилус</option><option value="pencil">Apple Pencil</option></select>';
+$('toolbar').append(inputModeControl);
+try{$('inputMode').value=localStorage.getItem('notepad-input-mode')||'any'}catch{}
+$('inputMode').onchange=()=>{finish();try{localStorage.setItem('notepad-input-mode',$('inputMode').value)}catch{}};
+const inputHint=document.createElement('p');
+inputHint.className='input-hint';
+inputHint.textContent='Неоригинальный стилус может определяться как палец — выберите «Любой стилус и палец». Safari не гарантирует распознавание модели стилуса, включая Apple Pencil.';
+$('toolbar').after(inputHint);
 function schedulePaint(){if(frame===null)frame=requestAnimationFrame(()=>{frame=null;paint()})}
 function finish(){
   if(!drawing)return;
@@ -26,7 +32,7 @@ function finish(){
 }
 canvas.addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse'&&e.button!==0)return;
-  if(e.pointerType==='touch'&&$('pencilOnly').checked)return;
+  if($('inputMode').value!=='any'&&e.pointerType!=='pen')return;
   if(drawing){
     if(e.pointerType!=='pen'||activeType!=='touch')return;
     // A Pencil takes priority over a touch that may have come from a palm.
@@ -52,6 +58,9 @@ canvas.addEventListener('pointerup',e=>{
 });
 for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(e.pointerId===activePointer)finish()});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
+for(const element of [canvas,$('toolbar')])element.addEventListener('selectstart',e=>e.preventDefault());
+canvas.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+canvas.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 // Commit before a toolbar action or page change, including keyboard activation.
 document.addEventListener('click',e=>{if(!canvas.contains(e.target))finish()},true);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)finish()});

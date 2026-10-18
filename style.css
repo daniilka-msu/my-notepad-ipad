@@ -30,3 +30,8 @@ canvas{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 @media(max-width:1100px){aside{width:220px}#toolbar{padding:8px 12px;gap:6px}#toolbar label{font-size:12px}}
 @media(max-width:750px){aside{width:min(290px,85vw);padding-top:24px}#topbar{padding:10px;gap:7px}#bookTitle{font-size:15px}#addPage{font-size:12px;padding:8px}#workspace{padding:16px 10px}#toolbar{max-height:176px;overflow-y:auto;flex-shrink:0}.tool{font-size:13px;padding:9px}#toolbar label{font-size:12px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+#toolbar,#toolbar *,#topbar,#bottom,#page{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#page,canvas{touch-action:none}
+#toolbar select{max-width:230px}
+.input-hint{margin:0;padding:6px 20px;font-size:12px;line-height:1.5;color:#64718a;background:#fcfdff;border-bottom:1px solid #e0e4ec;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}

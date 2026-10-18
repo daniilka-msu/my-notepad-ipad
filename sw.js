@@ -1,4 +1,4 @@
-﻿const CACHE='notebooks-v2';
+﻿const CACHE='notebooks-v3';
 const FILES=['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',event=>event.waitUntil(
   caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())
@@ -14,3 +14,4 @@ self.addEventListener('fetch',event=>{
     return cached||fetch(event.request);
   }));
 });
+
