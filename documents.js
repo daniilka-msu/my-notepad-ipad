@@ -44,7 +44,7 @@ const Documents=(()=>{
     else {
       c.save();c.scale(1,height / Paper.geometry(notebook).height);Paper.draw(c,notebook);c.restore();
     }
-    await ImageObjects.prepare(notebook.pages[index]);
+    await Promise.all([ImageObjects.prepare(notebook.pages[index]),StudyObjects.prepare(notebook.pages[index])]);
     const previousBook=book,previousPage=page;
     try{book=notebook;page=index;paint(false);c.drawImage(canvas,0,0,W,height)}finally{book=previousBook;page=previousPage;paint()}
     return target;

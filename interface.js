@@ -55,7 +55,7 @@ const Interface=(()=>{
     }
   },true);
   document.addEventListener('focusin',e=>{if(open&&!sidebar.contains(e.target)&&e.target!==$('toggleSidebar')&&!e.target.closest?.('dialog'))$('bookSearch').focus({preventScroll:true})});
-  document.addEventListener('pointerdown',e=>{for(const details of [docMenu,$('extraTools')])if(details.open&&!details.contains(e.target))details.open=false},true);
+  document.addEventListener('pointerdown',e=>{for(const details of [docMenu,$('extraTools')])if(details.open&&!details.contains(e.target)){details.open=false;if(e.target===canvas){e.preventDefault();e.stopImmediatePropagation()}}},true);
   document.addEventListener('keydown',e=>{if(e.key==='Escape')for(const details of [docMenu,$('extraTools')])if(details.open){details.open=false;details.querySelector('summary').focus()}});
   for(const details of [docMenu,$('extraTools')]){
     details.querySelector('summary').setAttribute('aria-expanded','false');details.addEventListener('toggle',()=>details.querySelector('summary').setAttribute('aria-expanded',String(details.open)));

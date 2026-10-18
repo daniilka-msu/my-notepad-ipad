@@ -83,6 +83,7 @@ function renderBooks(){
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
 const ink=inkLayer.getContext('2d');
 function stroke(s){
+  if(StudyObjects.types.includes(s.type)){StudyObjects.render(ctx,s);return}
   if(s.type==='chart-object'){Charts.render(ctx,s);return}
   if(s.type==='image-object'){ImageObjects.render(ctx,s,book);return}
   if(s.type==='text-block'){TextBlocks.render(ctx,s);return}

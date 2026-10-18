@@ -4,6 +4,7 @@ const Backups=(()=>{
   const finite=value=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<1e8;
   function validBrush(s){return s.brushVersion===undefined||(s.brushVersion===1&&Object.hasOwn(Brushes.labels,s.penType)&&Number.isInteger(s.seed)&&s.seed>=0&&s.seed<=4294967295)}
   function validShape(s){return isObject(s)&&validBrush(s)&&s.type===undefined&&Shapes.kinds.includes(s.shape)&&s.tool==='pen'&&finite(s.width)&&s.width>0&&s.width<=1000&&/^#[0-9a-f]{6}$/i.test(s.color)&&Array.isArray(s.points)&&s.points.length<=1000&&s.points.every(p=>isObject(p)&&finite(p.x)&&finite(p.y))&&(s.opacity===undefined||(finite(s.opacity)&&s.opacity>=0&&s.opacity<=1))&&(s.fill==null||/^#[0-9a-f]{6}$/i.test(s.fill))&&['shapeStart','shapeEnd'].every(key=>s[key]===undefined||(isObject(s[key])&&finite(s[key].x)&&finite(s[key].y)))}
+  function validObject(s){return s?.type==='image-object'?ImageObjects.valid(s):s?.type==='chart-object'?Charts.valid(s):StudyObjects.valid(s)}
   function validateLibrary(library){
     if(!isObject(library)||!Array.isArray(library.books)||!library.books.length)throw new Error('Нет тетрадей в резервной копии');
     const ids=new Set();
@@ -20,10 +21,11 @@ const Backups=(()=>{
         if(s.type==='shape-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!items[s.target].shape||(s.value!==null&&!validShape(s.value)))throw new Error('Повреждено изменение фигуры');continue}
         if(s.type==='text-block'){if(!TextBlocks.valid(s))throw new Error('Повреждён текстовый блок');continue}
         if(s.type==='text-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||items[s.target].type!=='text-block'||(s.value!==null&&!TextBlocks.valid(s.value)))throw new Error('Повреждено изменение текста');continue}
+        if(StudyObjects.types.includes(s.type)){if(!StudyObjects.valid(s))throw new Error('Поврежден учебный объект');continue}
         if(s.type==='chart-object'){if(!Charts.valid(s))throw new Error('Повреждена диаграмма');continue}
         if(s.type==='image-object'){if(!ImageObjects.valid(s))throw new Error('Повреждено изображение');continue}
-        if(s.type==='object-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!['image-object','chart-object'].includes(items[s.target].type)||(s.value!==null&&(s.value.type!==items[s.target].type||!(s.value.type==='image-object'?ImageObjects.valid(s.value):Charts.valid(s.value)))))throw new Error('Повреждено изменение объекта');continue}
-        if(s.type==='object-order'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!['image-object','chart-object'].includes(items[s.target].type)||!['front','back'].includes(s.placement))throw new Error('Повреждён порядок объектов');continue}
+        if(s.type==='object-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!['image-object','chart-object',...StudyObjects.types].includes(items[s.target].type)||(s.value!==null&&(s.value.type!==items[s.target].type||!validObject(s.value))))throw new Error('Повреждено изменение объекта');continue}
+        if(s.type==='object-order'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!['image-object','chart-object',...StudyObjects.types].includes(items[s.target].type)||!['front','back'].includes(s.placement))throw new Error('Повреждён порядок объектов');continue}
         if(!validBrush(s))throw new Error('Поврежден инструмент письма');
         if(s.shapeVersion===1&&!validShape(s))throw new Error('Повреждена фигура');
         if(s.type==='text'){if(typeof s.text!=='string'||s.text.length>100000||typeof s.color!=='string'||!/^#[0-9a-f]{6}$/i.test(s.color))throw new Error('Повреждён текст');continue}

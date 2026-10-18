@@ -660,5 +660,5 @@ const ChartStudio = (() => {
     }),
     edit: open,
   });
-  return { value, refresh, instance: () => instance };
+  return { value, refresh, instance: () => instance, openKind(kind){open(null);$("chartKind").value=kind;refresh()} };
 })();
