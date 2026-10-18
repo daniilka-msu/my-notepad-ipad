@@ -46,8 +46,8 @@ function renderBooks(){selected();$('books').replaceChildren();for(const b of da
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
 const ink=inkLayer.getContext('2d');
 function stroke(s){
-  if(!s.points?.length)return;
   if(s.type==='text'){ctx.save();ctx.fillStyle=s.color||'#222';ctx.font='18px -apple-system, sans-serif';for(const [i,line] of s.text.split('\n').entries())ctx.fillText(line,36,50+i*26,W-72);ctx.restore();return}
+  if(!s.points?.length)return;
   ink.setTransform(2,0,0,2,0,0);ink.clearRect(0,0,W,H);ink.fillStyle=s.tool==='eraser'?'#000':s.color;ink.strokeStyle=ink.fillStyle;ink.lineCap='round';ink.lineJoin='round';
   const pts=s.points;
   const factor=s.penType==='ballpoint'?.8:s.penType==='gel'?1.15:1;
@@ -155,6 +155,13 @@ $('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)boo
 
 
 let backgroundToken=0,backgroundURL=null;
+function insertTextPages(text){
+  finish();const lines=[];
+  for(const paragraph of text.split('\n')){let line='';for(const word of paragraph.split(/\s+/)){if((line+' '+word).length>68){lines.push(line);line=word}else line+=(line?' ':'')+word}lines.push(line)}
+  const first=book.pages.length;
+  for(let start=0;start<lines.length;start+=38){book.pages.push([{type:'text',text:lines.slice(start,start+38).join('\n'),color:$('color').value}]);if(book.backgrounds)book.backgrounds.push(null)}
+  page=first;redo=[];render();
+}
 async function updateBackground(){
   const token=++backgroundToken,background=book.backgrounds?.[page],element=$('pageBackground');
   element.hidden=true;if(backgroundURL){URL.revokeObjectURL(backgroundURL);backgroundURL=null}

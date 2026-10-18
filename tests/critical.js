@@ -40,6 +40,9 @@ await NotepadStore.putAssets(importedPdf.assets);
 importedPdf.book.pages[0].push({tool:'pen',color:'#ff0000',width:8,points:[{x:100,y:100},{x:200,y:100}]});
 const composed=await Documents.compose(importedPdf.book,0);check('annotated export contains ink',composed.getContext('2d').getImageData(150,100,1,1).data[0]===255);
 check('document export restores editor',book.id===data.selected&&page===1);
+await AIAssistant.connect();check('AI honestly disconnected',$('aiStatus').textContent.includes('ИИ не подключён')&&$('sendAI').disabled);
+const beforeText=book.pages.length;insertTextPages('Ответ помощника\nПояснение решения');check('AI insertion appends new page',book.pages.length===beforeText+1&&book.pages.at(-1)[0].type==='text');
+check('AI text rendered',ctx.getImageData(30,30,1480,150).data.some(value=>value>0));
 }catch(error){results.push('FAIL '+error.stack)}
 document.body.innerHTML='';const output=document.createElement('pre');output.id='results';output.textContent=results.join('\n');document.body.append(output);
 })();
