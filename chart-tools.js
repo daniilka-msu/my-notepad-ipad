@@ -674,6 +674,16 @@ const ChartStudio = (() => {
     value,
     refresh,
     instance: () => instance,
+    replaceData(specification) {
+      const s = ChartRequests.validate(specification);
+      $("chartKind").value = s.kind;
+      if (s.title) $("chartName").value = s.title;
+      dataBody.replaceChildren();
+      s.data.forEach(addData);
+      $("chartData").value = dataBulk = "";
+      hidden = [];
+      refresh();
+    },
     rememberAxes() {
       initialAxes = Object.fromEntries(
         ["xMin", "xMax", "yMin", "yMax"].map((key) => [

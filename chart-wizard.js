@@ -74,7 +74,9 @@ const ChartWizard = (() => {
   primaryOptions.label = "Диаграммы";
   otherOptions.label = "Другие объекты";
   for (const option of [...$("chartKind").options])
-    (primary.includes(option.value) ? primaryOptions : otherOptions).append(option);
+    (primary.includes(option.value) ? primaryOptions : otherOptions).append(
+      option,
+    );
   $("chartKind").replaceChildren(primaryOptions, otherOptions);
   let step = 1,
     editing = false,
@@ -132,6 +134,17 @@ const ChartWizard = (() => {
   function go(target) {
     if (!enabled) return true;
     if (target < 1 || target > 4) return false;
+    if (
+      target > 2 &&
+      typeof DescriptionTools !== "undefined" &&
+      !DescriptionTools.canProceed()
+    ) {
+      $("descriptionError").textContent =
+        "Разберите запрос и проверьте результат в таблице или вернитесь к ручному вводу.";
+      step = 2;
+      configure();
+      return false;
+    }
     if (target > step && target > 2) {
       ChartStudio.refresh();
       try {
