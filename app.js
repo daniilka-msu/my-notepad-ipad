@@ -87,7 +87,8 @@ function renderBooks(){
 }
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
 const ink=inkLayer.getContext('2d');
-function stroke(s){
+function stroke(s,target=ctx,surface=null){
+  const ctx=target,layer=surface?.scratch||inkLayer,ink=layer.getContext('2d'),view=surface?.view||{x:0,y:0,width:W,height:H},sx=surface?.sx||2,sy=surface?.sy||2;
   if(StudyObjects.types.includes(s.type)){StudyObjects.render(ctx,s);return}
   if(s.type==='chart-object'){Charts.render(ctx,s);return}
   if(s.type==='image-object'){ImageObjects.render(ctx,s,book);return}
@@ -95,7 +96,7 @@ function stroke(s){
   if(s.type==='text'){ctx.save();ctx.fillStyle=s.color||'#222';ctx.font='18px -apple-system, sans-serif';for(const [i,line] of s.text.split('\n').entries())ctx.fillText(line,36,50+i*26,W-72);ctx.restore();return}
   if(!s.points?.length)return;
   if(s.shapeVersion===1){Shapes.render(ctx,s,book);return}
-  ink.setTransform(2,0,0,2,0,0);ink.clearRect(0,0,W,H);ink.fillStyle=s.tool==='eraser'?'#000':s.color;ink.strokeStyle=ink.fillStyle;ink.lineCap='round';ink.lineJoin='round';
+  ink.setTransform(sx,0,0,sy,-view.x*sx,-view.y*sy);ink.clearRect(view.x,view.y,view.width,view.height);ink.fillStyle=s.tool==='eraser'?'#000':s.color;ink.strokeStyle=ink.fillStyle;ink.lineCap='round';ink.lineJoin='round';
   const pts=s.points;
   const factor=s.penType==='ballpoint'?.8:s.penType==='gel'?1.15:1;
   if(s.brushVersion===1&&['pen','marker'].includes(s.tool)){Brushes.render(ink,s)}
@@ -117,7 +118,7 @@ function stroke(s){
       }
     }
   }
-  ctx.save();ctx.globalAlpha=(s.opacity??1)*(s.tool==='marker'?.28:1);ctx.globalCompositeOperation=s.tool==='eraser'?'destination-out':'source-over';ctx.drawImage(inkLayer,0,0,W,H);ctx.restore();
+  ctx.save();ctx.globalAlpha=(s.opacity??1)*(s.tool==='marker'?.28:1);ctx.globalCompositeOperation=s.tool==='eraser'?'destination-out':'source-over';ctx.drawImage(layer,view.x,view.y,view.width,view.height);ctx.restore();
 }
 function pointSegmentDistance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy;const t=length?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/length)):0;return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy)}
 function segmentDistance(a,b,c,d){
@@ -142,12 +143,14 @@ function paint(includePreview=true){
     const layer=committedLayer.getContext('2d');layer.clearRect(0,0,committedLayer.width,committedLayer.height);layer.drawImage(canvas,0,0);
     cachedLength=items.length;cachedLast=items.at(-1);
   }else{
+    window.InkQuality?.invalidate();window.ZoomWriting?.invalidate();
     const hidden=new Set(items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets));
     if(previewErasure)for(const index of erasedTargets(drawing,items))hidden.add(index);
     for(const [i,s]of Shapes.ordered(items,includePreview))if(s&&!hidden.has(i)&&s.tool!=='stroke-eraser')stroke(s);
     if(!previewErasure&&!previewShape){const layer=committedLayer.getContext('2d');layer.clearRect(0,0,committedLayer.width,committedLayer.height);layer.drawImage(canvas,0,0);cachedItems=items;cachedLength=items.length;cachedLast=items.at(-1)}
   }
   if(drawing&&drawing.tool!=='stroke-eraser')stroke(drawing);
+  window.InkQuality?.schedule();window.ZoomWriting?.schedule();
 }
 let renderedPage=null;
 function render(){const previousPage=renderedPage;renderBooks();renderedPage=book.pages[page];Library.track(book);$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;
@@ -168,10 +171,11 @@ function validPosition(e){
   const r=canvas.getBoundingClientRect();
   return Number.isFinite(e.clientX)&&Number.isFinite(e.clientY)&&r.width>0&&r.height>0;
 }
-let activePointer=null,activeType=null,frame=null,strokePage=null,lastSample=null;
+let activePointer=null,activeType=null,frame=null,strokePage=null,lastSample=null,captureTarget=canvas;
 function appendPoint(e,endpoint=false){
   if(!drawing||e.pointerId!==activePointer||e.pointerType!==activeType||!validPosition(e)||!Number.isFinite(e.timeStamp)||e.timeStamp<lastSample.time)return;
-  const distance=Math.hypot(e.clientX-lastSample.x,e.clientY-lastSample.y);
+  const inputX=e.notepadInputX??e.clientX,inputY=e.notepadInputY??e.clientY;
+  const distance=Math.hypot(inputX-lastSample.x,inputY-lastSample.y);
   if(distance===0)return;
   const elapsed=Math.min(50,Math.max(0,e.timeStamp-lastSample.time));
   // A release is not a new movement sample: never chase a distant lift-off coordinate.
@@ -179,9 +183,10 @@ function appendPoint(e,endpoint=false){
   const point=pos(e),last=drawing.points.at(-1);
   if(!drawing.shape&&!endpoint&&activeType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1)drawing.pressure=true;
   if(endpoint){point.p=last.p;point.pressureValid=last.pressureValid}
-  if(drawing.shape){drawing.shapeEnd={...point};drawing.points=shapePoints(drawing.shape,drawing.shapeStart||drawing.points[0],point);lastSample={x:e.clientX,y:e.clientY,time:e.timeStamp};return}
+  if(drawing.shape){drawing.shapeEnd={...point};drawing.points=shapePoints(drawing.shape,drawing.shapeStart||drawing.points[0],point);lastSample={x:e.notepadInputX??e.clientX,y:e.notepadInputY??e.clientY,time:e.timeStamp};return}
+  drawing.rawPoints?.push({...point});
   drawing.points.push(filterPoint(point,last,drawing.smoothing,drawing.stabilization));
-  lastSample={x:e.clientX,y:e.clientY,time:e.timeStamp};
+  lastSample={x:e.notepadInputX??e.clientX,y:e.notepadInputY??e.clientY,time:e.timeStamp};
 }
 const inputModeControl=document.createElement('label');
 inputModeControl.innerHTML='Ввод <select id="inputMode"><option value="any">Любой стилус и палец</option><option value="stylus">Только стилус, если устройство позволяет его определить</option><option value="pencil">Apple Pencil</option></select>';
@@ -207,8 +212,8 @@ function finish(){
   clearTimeout(holdTimer);
   if(drawing.tool==='stroke-eraser')drawing.targets=erasedTargets(drawing,strokePage);
   strokePage.push(drawing);drawing=null;activePointer=null;activeType=null;strokePage=null;lastSample=null;redo=[];
-  if(canvas.hasPointerCapture(pointer))canvas.releasePointerCapture(pointer);
-  render();saving.idle();
+  if(captureTarget.hasPointerCapture(pointer))captureTarget.releasePointerCapture(pointer);
+  render();saving.idle();document.dispatchEvent(new CustomEvent('notepad:stroke-end',{detail:{bookId:book.id,page,index:book.pages[page].length-1}}));
 }
 canvas.addEventListener('pointerdown',e=>{
   if(!validPosition(e)||!Number.isFinite(e.timeStamp)||!['touch','pen','mouse'].includes(e.pointerType))return;
@@ -219,12 +224,14 @@ canvas.addEventListener('pointerdown',e=>{
     // A Pencil takes priority over a touch that may have come from a palm.
     const pointer=activePointer;
     drawing=null;activePointer=null;activeType=null;
-    if(canvas.hasPointerCapture(pointer))canvas.releasePointerCapture(pointer);
+    if(captureTarget.hasPointerCapture(pointer))captureTarget.releasePointerCapture(pointer);
   }
   e.preventDefault();activePointer=e.pointerId;activeType=e.pointerType;
-  strokePage=book.pages[page];lastSample={x:e.clientX,y:e.clientY,time:e.timeStamp};
-  try{canvas.setPointerCapture(e.pointerId)}catch{activePointer=null;activeType=null;strokePage=null;lastSample=null;return}
+  strokePage=book.pages[page];lastSample={x:e.notepadInputX??e.clientX,y:e.notepadInputY??e.clientY,time:e.timeStamp};
+  captureTarget=e.notepadCaptureTarget||canvas;
+  try{captureTarget.setPointerCapture(e.pointerId)}catch{activePointer=null;activeType=null;strokePage=null;lastSample=null;return}
   drawing={brushVersion:1,seed:crypto.getRandomValues(new Uint32Array(1))[0],filtered:true,stabilization:preferences.stabilization,tool,color:$('color').value,width:Number($('width').value)*(['pen','shape'].includes(tool)?1:5),penType:tool==='marker'?'marker':preferences.penType,smoothing:preferences.smoothing,opacity:preferences.opacity/100,pressure:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1,points:[pos(e)]};
+  if(tool!=='shape'){drawing.rawPoints=[{...drawing.points[0]}];drawing.tightSampling=true}
   if(tool==='shape'){drawing.shape=$('shapeKind').value;drawing.shapeVersion=1;drawing.shapeStart={...drawing.points[0]};drawing.shapeEnd={...drawing.points[0]};drawing.fill=$('shapeFillEnabled').checked&&Shapes.closed.has(drawing.shape)?$('shapeFill').value:null;drawing.color=$('shapeColor').value;drawing.width=Number($('shapeWidth').value);drawing.opacity=Number($('shapeOpacity').value)/100;drawing.tool='pen';drawing.pressure=false;drawing.smoothing=0}
   if(tool==='eraser'&&preferences.eraserMode==='stroke')drawing.tool='stroke-eraser';
   saving.input();

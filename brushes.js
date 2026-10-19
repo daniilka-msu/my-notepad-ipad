@@ -2,9 +2,9 @@ const Brushes = (() => {
   const labels={regular:'Обычная ручка',ballpoint:'Шариковая ручка',fountain:'Перьевая ручка',pencil:'Карандаш',marker:'Маркер',brush:'Кисть',calligraphy:'Каллиграфическое перо',dashed:'Пунктирная ручка',gel:'Гелевая ручка'};
   const descriptions={regular:'Ровная круглая линия.',ballpoint:'Тонкий округлый штрих с умеренной реакцией на давление.',fountain:'Ширина зависит от направления движения и давления пера.',pencil:'Зернистая текстура графита; рисунок зерна сохраняется.',marker:'Широкий скошенный след с прозрачностью маркера.',brush:'Мягкий край и плавное сужение концов штриха.',calligraphy:'Плоское перо под фиксированным углом 55°.',dashed:'Штрихи и промежутки вдоль траектории без соединения отдельных касаний.',gel:'Плотная округлая линия шире обычной ручки.'};
   const sprites=new Map();
-  function samples(points) {
+  function samples(points,width) {
     const distances=points.slice(1).map((p,i)=>Math.hypot(p.x-points[i].x,p.y-points[i].y));
-    const total=distances.reduce((a,b)=>a+b,0),spacing=Math.max(.7,total/12000),result=[];
+    const total=distances.reduce((a,b)=>a+b,0),spacing=Math.max(width?Math.max(.08,Math.min(.7,width*.12)):.7,total/12000),result=[];
     if(!total)return [{...points[0],angle:0,progress:.5}];
     let walked=0,next=0;
     for(let i=1;i<points.length;i++){
@@ -23,7 +23,7 @@ const Brushes = (() => {
       c.lineWidth=width;c.setLineDash([width*3,width*2]);c.beginPath();s.points.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));if(s.points.length===1)c.lineTo(s.points[0].x+.01,s.points[0].y);c.stroke();c.restore();return;
     }
     let seed=(s.seed??17)|0;function random(){seed=(Math.imul(seed,1664525)+1013904223)|0;return (seed>>>0)/4294967296}
-    const path=samples(s.points);
+    const path=samples(s.points,s.tightSampling?s.width:0);
     for(const p of path){
       const credible=s.pressure&&p.pressureValid!==false&&Number.isFinite(p.p);
       const pressure=credible?Math.min(1,Math.max(0,p.p)):.5;
