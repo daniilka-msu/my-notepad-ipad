@@ -273,19 +273,7 @@ const ChartStudio = (() => {
   function syncBulk() {
     if ($("chartData").value !== dataBulk) {
       const raw = $("chartData").value;
-      const parsed = raw
-        .trim()
-        .split("\n")
-        .map((line) => {
-          const a = line.split(";");
-          if (a.length < 2 || a.length > 3 || !a.at(-1).trim())
-            throw new Error("Список: подпись; Y, для точек: подпись; X; Y");
-          return {
-            label: a[0].trim(),
-            x: a.length === 3 ? Number(a[1].replace(",", ".")) : 0,
-            value: Number(a.at(-1).replace(",", ".")),
-          };
-        });
+      const parsed = ChartData.parse(raw, $("chartKind").value === "scatter");
       if (parsed.length > 100) throw new Error("Не более 100 строк данных");
       dataBulk = raw;
       dataBody.replaceChildren();
@@ -318,6 +306,7 @@ const ChartStudio = (() => {
   }
   function refresh() {
     sections();
+    document.dispatchEvent(new Event("notepad:chart-refresh"));
     $("chartAddRow").disabled = dataBody.rows.length >= 100;
     $("chartAddNode").disabled = flowBody.rows.length >= 24;
     $("chartAddPoint").disabled = pointBody.rows.length >= 40;
@@ -550,6 +539,11 @@ const ChartStudio = (() => {
     $("applyChart").textContent = source
       ? "Применить изменения"
       : "Вставить на страницу";
+    document.dispatchEvent(
+      new CustomEvent("notepad:chart-open", {
+        detail: { editing: !!source, kind: s.kind },
+      }),
+    );
     dialog.showModal();
     dialog.scrollTop = 0;
     if (instance) instance.dispose();
@@ -660,5 +654,14 @@ const ChartStudio = (() => {
     }),
     edit: open,
   });
-  return { value, refresh, instance: () => instance, openKind(kind){open(null);$("chartKind").value=kind;refresh()} };
+  return {
+    value,
+    refresh,
+    instance: () => instance,
+    openKind(kind) {
+      open(null);
+      $("chartKind").value = kind;
+      refresh();
+    },
+  };
 })();

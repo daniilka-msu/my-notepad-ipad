@@ -243,7 +243,8 @@ try {
       await page.locator("#lockObject").click();
       await page.locator("#extraTools summary").click();
       await page.locator("#insertChart").click();
-      await page.locator("#applyChart").click();
+      if(await page.evaluate(()=>ChartWizard.enabled))await page.locator('[data-chart-step="4"]').click();
+        await page.locator("#applyChart").click();
       const count = await page.evaluate(
         () =>
           Shapes.resolve(book.pages[page]).filter(

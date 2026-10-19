@@ -88,11 +88,13 @@ try {
         await page.locator("#extraTools summary").click();
         await page.locator("#insertChart").click();
         await page.locator("#chartKind").selectOption(kind);
+        if(await page.evaluate(()=>ChartWizard.enabled))await page.locator('[data-chart-step="3"]').click();
         await page.locator("#chartName").fill("Studio " + kind);
         await page
           .locator("#chartTheme")
           .selectOption(index % 2 ? "aurora" : "studio");
         if (kind === "bar") {
+          await page.locator('[data-chart-step="2"]').click();
           const row = page.locator("#chartDataTable tbody tr").first();
           await row.locator("td").nth(0).locator("input").fill("Эксперимент");
           await row.locator("td").nth(2).locator("input").fill("12");
@@ -319,6 +321,7 @@ try {
                 });
           }
         await page.setViewportSize({ width: 1024, height: 768 });
+        if(await page.evaluate(()=>ChartWizard.enabled))await page.locator('[data-chart-step="4"]').click();
         await page.locator("#applyChart").click();
         assert(
           await page.evaluate(
