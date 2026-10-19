@@ -51,6 +51,6 @@ const TextTools = (() => {
   for(const event of ['pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{if(pending?.id===e.pointerId)pending=null;if(drag?.id===e.pointerId){cancel();e.stopImmediatePropagation()}},true);
   document.addEventListener('notepad:render',update);document.addEventListener('notepad:gesture-start',()=>{pending=null;cancel()});document.addEventListener('notepad:tool',()=>{if(tool!=='textBlock'){pending=null;clear()}});window.addEventListener('blur',()=>{pending=null;cancel()});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){pending=null;cancel()}});
-  document.addEventListener('keydown',e=>{if(document.querySelector('dialog[open]')||document.body.classList.contains('library-open')||e.target.closest?.('input,textarea,select'))return;if(e.key==='Escape')clear();if((e.key==='Delete'||e.key==='Backspace')&&current()){e.preventDefault();$('deleteText').click()}});
+  document.addEventListener('keydown',e=>{if(document.body.classList.contains('home-view')||document.querySelector('dialog[open]')||document.body.classList.contains('library-open')||e.target.closest?.('input,textarea,select'))return;if(e.key==='Escape')clear();if((e.key==='Delete'||e.key==='Backspace')&&current()){e.preventDefault();$('deleteText').click()}});
   return {current,clear,commit};
 })();

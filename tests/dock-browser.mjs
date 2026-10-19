@@ -64,6 +64,7 @@ try {
       page.setDefaultTimeout(12000);
       page.on("pageerror", (e) => errors.push(e.message));
       await page.goto(url);
+      await page.evaluate(async()=>{await Home.ready;if(!Library.active(data).length){const entry=Library.newBook({name:'Регрессионная тетрадь',template:'plain',pageSize:'a4',paper:'blank',color:'#5369d8',pattern:'plain'});data.books.push(entry);Home.open(entry.id,{history:false})}else Home.open(data.selected,{history:false})});
       await page.waitForFunction(
         () => typeof storageReady !== "undefined" && storageReady,
       );

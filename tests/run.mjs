@@ -8,8 +8,8 @@ import {spawn} from 'node:child_process';
 const root=resolve(import.meta.dirname,'..');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const index=await readFile(resolve(root,'index.html'),'utf8');
-const tests=await readFile(resolve(root,'tests/critical.js'),'utf8');
-const legacySeed='<script>localStorage.setItem("ipad-notebooks-v1",JSON.stringify({selected:"legacy",books:[{id:"legacy",name:"Старый конспект",paper:"grid",pages:[[{tool:"pen",color:"#222222",width:3,points:[{x:20,y:20},{x:30,y:30}]}]]}]}));</script>';
+const tests=(await readFile(resolve(root,'tests/critical.js'),'utf8')).replace('try{await ready;','try{await ready;await Home.ready;');
+const legacySeed='<script>location.hash="#notebook/legacy";localStorage.setItem("ipad-notebooks-v1",JSON.stringify({selected:"legacy",books:[{id:"legacy",name:"Старый конспект",paper:"grid",pages:[[{tool:"pen",color:"#222222",width:3,points:[{x:20,y:20},{x:30,y:30}]}]]}]}));</script>';
 const html=index.replace('<script src="config.js"></script>',legacySeed+'<script src="config.js"></script>').replace('<script src="app.js"></script>','<script src="app.js"></script><script src="tests/interface.js"></script><script src="tests/paper.js"></script><script src="tests/shapes.js"></script><script src="tests/brushes.js"></script><script src="tests/text.js"></script><script src="tests/images.js"></script><script src="tests/charts.js"></script><script src="tests/studio.js"></script><script src="tests/critical.js"></script>');
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.wasm':'application/wasm','.svg':'image/svg+xml','.pdf':'application/pdf'};
 let aiBackend,providerPayload,providerStatus=200;
@@ -17,6 +17,7 @@ const server=http.createServer(async(req,res)=>{
  try{
  const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
  if(pathname.startsWith('/api/')){if(!aiBackend){res.writeHead(503).end();return}aiBackend.emit('request',req,res);return}
+ if(pathname==='/tests/critical.js'){res.setHeader('Content-Type',types['.js']);res.end(tests);return}
  if(pathname==='/test'){res.setHeader('Content-Type',types['.html']);res.end(html);return}
  const file=resolve(root,'.'+(pathname==='/'?'/index.html':pathname));if(!file.startsWith(root+ '\\')){res.writeHead(403).end();return}
  res.setHeader('Content-Type',types[extname(file)]||'application/octet-stream');res.end(await readFile(file));
@@ -50,7 +51,7 @@ try{
    const result=await call('Runtime.evaluate',{expression:'Promise.race([navigator.serviceWorker.ready.then(()=>true),new Promise(resolve=>setTimeout(()=>resolve(false),20000))])',awaitPromise:true,returnByValue:true});
    if(!result.result?.result?.value)throw new Error('Offline cache did not install');
    await call('Page.navigate',{url:`http://127.0.0.1:${port}/`});
-   async function waitForStorage(){for(let i=0;i<150;i++){const value=await call('Runtime.evaluate',{expression:'typeof storageReady!=="undefined"&&storageReady&&data.books.length>=2',returnByValue:true});if(value.result?.result?.value)return;await sleep(100)}throw new Error('Reload lost persisted notebooks')}
+   async function waitForStorage(){for(let i=0;i<150;i++){const value=await call('Runtime.evaluate',{expression:'typeof storageReady!=="undefined"&&storageReady&&typeof Home!=="undefined"&&data.books.length>=2',returnByValue:true});if(value.result?.result?.value){const opened=await call('Runtime.evaluate',{expression:'Home.ready.then(()=>Home.open(data.selected,{history:false}))',awaitPromise:true,returnByValue:true});if(opened.result?.exceptionDetails||opened.result?.result?.value!==true)throw new Error('Could not open persisted notebook from home');return;}await sleep(100)}throw new Error('Reload lost persisted notebooks')}
    await waitForStorage();console.log('PASS notebooks survive reload');
    const restoredTheme=await call('Runtime.evaluate',{expression:'document.documentElement.dataset.theme==="dark"&&preferences.width===7',returnByValue:true});
    if(!restoredTheme.result?.result?.value)throw new Error('Preferences did not survive reload');console.log('PASS preferences survive reload');

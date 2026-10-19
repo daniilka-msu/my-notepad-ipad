@@ -1,7 +1,8 @@
 const $=id=>document.getElementById(id),KEY='ipad-notebooks-v1';
 const uid=()=>crypto.randomUUID?.()||String(Date.now()+Math.random());
 let data;try{data=JSON.parse(localStorage.getItem(KEY))}catch{};
-if(!data?.books?.length)data={selected:null,books:[{id:uid(),name:'Моя первая тетрадь',paper:'grid',gridMm:5,pages:[[]]}]};
+if(!data||!Array.isArray(data.books))data={selected:null,books:[],libraryVersion:1,folders:[]};
+const emptyDocument={id:null,name:'Нет выбранного блокнота',paper:'grid',gridMm:5,pages:[[]]};
 let book,page=0,tool='pen',drawing=null,redo=[];
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),W=794;
 let H=1123;
@@ -65,9 +66,9 @@ function save(){
   });
 }
 function autosave(){save().catch(()=>{})}
-function selected(){book=data.books.find(b=>b.id===data.selected)||data.books[0];data.selected=book.id;page=Math.min(page,book.pages.length-1)}
+function selected(){book=Library.active(data).find(b=>b.id===data.selected)||Library.active(data)[0]||emptyDocument;data.selected=book.id;page=Math.min(page,book.pages.length-1)}
 function visibleBooks(){
-  const query=($('bookSearch')?.value||'').trim().toLocaleLowerCase('ru');let books=data.books.filter(b=>b.name.toLocaleLowerCase('ru').includes(query));
+  const query=($('bookSearch')?.value||'').trim().toLocaleLowerCase('ru');let books=Library.active(data).filter(b=>b.name.toLocaleLowerCase('ru').includes(query));
   const order=$('bookSort')?.value;if(order==='name')books.sort((a,b)=>a.name.localeCompare(b.name,'ru'));if(order==='newest')books.reverse();return books;
 }
 function renderBooks(){
@@ -76,9 +77,9 @@ function renderBooks(){
     const el=document.createElement('button');el.className='book'+(b.id===book.id?' selected':'');el.setAttribute('aria-current',String(b.id===book.id));
     const cover=document.createElement('span');cover.className='book-cover';cover.append(NotepadIcons.create('notebook'));
     const details=document.createElement('span');details.className='book-details';const name=document.createElement('span');name.className='book-name';name.textContent=b.name;const count=document.createElement('small');count.textContent=b.pages.length+' стр.';details.append(name,count);el.append(cover,details);
-    el.onclick=()=>{data.selected=b.id;page=0;redo=[];render();document.dispatchEvent(new Event('notepad:book-selected'))};$('books').append(el);
+    el.onclick=()=>{if(typeof Home!=='undefined'){Home.open(b.id);return}data.selected=b.id;page=0;redo=[];render();document.dispatchEvent(new Event('notepad:book-selected'))};$('books').append(el);
   }
-  if($('libraryCount'))$('libraryCount').textContent=data.books.length;
+  if($('libraryCount'))$('libraryCount').textContent=Library.active(data).length;
 }
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
 const ink=inkLayer.getContext('2d');
@@ -140,7 +141,7 @@ function paint(includePreview=true){
   }
   if(drawing&&drawing.tool!=='stroke-eraser')stroke(drawing);
 }
-function render(){renderBooks();$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;
+function render(){renderBooks();Library.track(book);$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;
   // Keep the original coordinate system: changing page format never rescales old notes.
   Paper.apply($('page'),book,page);$('gridSize').value=book.gridMm||'legacy';$('gridSize').disabled=book.paper!=='grid';
   $('page').style.setProperty('--paper',paperColors[book.paperColor]||paperColors.white);
@@ -280,7 +281,7 @@ $('fileInput').onchange=async e=>{
     }
 
     // Commit the new library only after every background has been stored.
-    const next={...data,books:[...data.books,...imported.map(item=>item.book)],selected:imported.at(-1).book.id};await NotepadStore.write(next,imported.flatMap(item=>item.assets));data=next;page=0;redo=[];render();
+    const next={...data,books:[...data.books,...imported.map(item=>Library.initialize({...item.book,createdAt:Date.now(),modifiedAt:Date.now()}))],selected:imported.at(-1).book.id};await NotepadStore.write(next,imported.flatMap(item=>item.assets));data=next;page=0;redo=[];render();
   }catch(error){alert('Импорт не выполнен: '+error.message)}finally{dialog.close();dialog.remove()}
 };
 $('exportPdf').onclick=async()=>{
@@ -297,8 +298,8 @@ const ready=(async()=>{
   $('app').inert=true;
   try{
     await NotepadStore.open();const stored=await NotepadStore.read();
-    if(stored?.books?.length)data=Backups.validateLibrary(stored);
-    else await NotepadStore.write(Backups.validateLibrary(data));
+    const original=Backups.validateLibrary(stored===undefined?data:stored);data=Library.migrate(original);
+    if(original.libraryVersion!==Library.version)await NotepadStore.upgradeLibrary(original,data);else if(stored===undefined)await NotepadStore.write(data);
     storageReady=true;
   }catch{storageFailed=true;$('saveStatus').textContent='Хранилище недоступно — экспортируйте записи';}
   render();if(!storageReady){$('saveStatus').textContent='Хранилище недоступно — записи не сохраняются';if($('saveWarning'))$('saveWarning').hidden=false}$('app').inert=false;

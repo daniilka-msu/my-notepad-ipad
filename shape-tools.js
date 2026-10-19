@@ -46,6 +46,6 @@ const ShapeTools = (() => {
   canvas.addEventListener('pointerup',e=>{if(!drag||drag.id!==e.pointerId)return;moved(e);const value=current(),changed=JSON.stringify(value)!==JSON.stringify(drag.shape);if(changed)commit(value);else cancel();e.preventDefault();e.stopImmediatePropagation()},true);
   for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(drag?.id===e.pointerId){cancel();e.stopImmediatePropagation()}},true);
   document.addEventListener('notepad:render',update);document.addEventListener('notepad:gesture-start',cancel);document.addEventListener('notepad:tool',()=>{if(tool!=='selectShape')clear()});window.addEventListener('blur',cancel);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancel()});
-  document.addEventListener('keydown',e=>{if(document.body.classList.contains('library-open')||document.querySelector('dialog[open]')||e.target.closest?.('input,textarea,select'))return;if(e.key==='Escape')clear();if((e.key==='Delete'||e.key==='Backspace')&&current()){e.preventDefault();$('deleteShape').click()}});
+  document.addEventListener('keydown',e=>{if(document.body.classList.contains('home-view')||document.body.classList.contains('library-open')||document.querySelector('dialog[open]')||e.target.closest?.('input,textarea,select'))return;if(e.key==='Escape')clear();if((e.key==='Delete'||e.key==='Backspace')&&current()){e.preventDefault();$('deleteShape').click()}});
   values();return {clear,current,cancel,commit};
 })();

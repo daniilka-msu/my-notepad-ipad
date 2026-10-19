@@ -35,6 +35,6 @@ async function runPaperTests(check) {
   specimen.gridMm=7;await save();check('grid size survives IndexedDB',(await NotepadStore.read()).books.find(b=>b.id===specimen.id).gridMm===7);
   const configured=await Backups.parse(JSON.stringify(await Backups.create({books:[specimen],selected:specimen.id},preferences)));check('backup retains configured grid',configured.library.books[0].gridMm===7);
   let bad=false;try{Backups.validateLibrary({books:[{...specimen,gridMm:6}],selected:specimen.id})}catch{bad=true}check('invalid grid setting rejected',bad);
-  const realPrompt=window.prompt;try{window.prompt=()=> 'Новая тетрадь';$('newBook').click();check('new notebooks default to 5 mm',book.gridMm===5);data.books=data.books.filter(b=>b!==book)}finally{window.prompt=realPrompt}
+  $('newBook').click();$('notebookName').value='Новая тетрадь';$('notebookForm').requestSubmit();for(let i=0;i<100&&$('notebookDialog').open;i++)await new Promise(r=>setTimeout(r,10));check('new notebooks default to 5 mm',book.gridMm===5);data.books=data.books.filter(b=>b!==book);
   data.books=data.books.filter(b=>b!==specimen);data.selected=originalBook.id;page=originalPage;render();PageView.fit();await save();
 }

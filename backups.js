@@ -6,10 +6,13 @@ const Backups=(()=>{
   function validShape(s){return isObject(s)&&validBrush(s)&&s.type===undefined&&(s.dash===undefined||['solid','dashed','dotted'].includes(s.dash))&&(s.radius===undefined||(finite(s.radius)&&s.radius>=0&&s.radius<=200))&&Shapes.kinds.includes(s.shape)&&s.tool==='pen'&&finite(s.width)&&s.width>0&&s.width<=1000&&/^#[0-9a-f]{6}$/i.test(s.color)&&Array.isArray(s.points)&&s.points.length<=1000&&s.points.every(p=>isObject(p)&&finite(p.x)&&finite(p.y))&&(s.opacity===undefined||(finite(s.opacity)&&s.opacity>=0&&s.opacity<=1))&&(s.fill==null||/^#[0-9a-f]{6}$/i.test(s.fill))&&['shapeStart','shapeEnd'].every(key=>s[key]===undefined||(isObject(s[key])&&finite(s[key].x)&&finite(s[key].y)))}
   function validObject(s){return s?.type==='image-object'?ImageObjects.valid(s):s?.type==='chart-object'?Charts.valid(s):StudyObjects.valid(s)}
   function validateLibrary(library){
-    if(!isObject(library)||!Array.isArray(library.books)||!library.books.length)throw new Error('Нет тетрадей в резервной копии');
+    if(!isObject(library)||(!Array.isArray(library.books)||(library.books.length===0&&library.libraryVersion!==1)))throw new Error('Нет тетрадей в резервной копии');
+    if(library.libraryVersion!==undefined&&library.libraryVersion!==1)throw new Error('Неизвестная версия библиотеки');
+    if(library.folders!==undefined&&(!Array.isArray(library.folders)||library.folders.some((f,i,all)=>!isObject(f)||typeof f.id!=='string'||typeof f.name!=='string'||!f.name.trim()||f.name.length>120||all.findIndex(x=>x.id===f.id)!==i)))throw new Error('Повреждены папки');
     const ids=new Set();
     for(const b of library.books){
       if(!isObject(b)||typeof b.id!=='string'||ids.has(b.id)||typeof b.name!=='string'||!Array.isArray(b.pages)||!b.pages.length)throw new Error('Неверная структура тетради');
+      if(['createdAt','modifiedAt','lastOpenedAt','deletedAt'].some(k=>b[k]!==undefined&&b[k]!==null&&(!Number.isFinite(b[k])||b[k]<0))||(b.favorite!==undefined&&typeof b.favorite!=='boolean')||(b.folderId!==undefined&&b.folderId!==null&&typeof b.folderId!=='string')||(b.cover!==undefined&&(!isObject(b.cover)||!/^#[0-9a-f]{6}$/i.test(b.cover.color)||!['plain','band','dots'].includes(b.cover.pattern))))throw new Error('Повреждены свойства блокнота');
       ids.add(b.id);if(!['grid','lines','dots','blank'].includes(b.paper))throw new Error('Неизвестная разлиновка');
       if(b.paperColor&&!['white','cream','gray','black'].includes(b.paperColor))throw new Error('Неверный цвет бумаги');
       if(b.gridMm!==undefined&&![5,7,10].includes(b.gridMm))throw new Error('Неверный размер клетки');
@@ -62,9 +65,10 @@ const Backups=(()=>{
   }
   async function merge(current,backup){
     const assets=[],idMap=new Map();for(const [id,blob]of backup.assets){const newId=uid();idMap.set(id,newId);assets.push([newId,blob])}
-    const books=structuredClone(backup.library.books);for(const b of books){b.id=uid();b.name+=' (копия)';for(const bg of b.backgrounds||[])if(bg)bg.id=idMap.get(bg.id)}
+    const importedFolders=structuredClone(backup.library.folders||[]),folderMap=new Map();for(const f of importedFolders){const old=f.id;f.id=uid();folderMap.set(old,f.id)}
+    const books=structuredClone(backup.library.books);for(const b of books){b.folderId=folderMap.get(b.folderId)||null;b.id=uid();b.name+=' (копия)';for(const bg of b.backgrounds||[])if(bg)bg.id=idMap.get(bg.id)}
     for(const b of books)for(const items of b.pages)for(const s of items)for(const v of [s,s.value])if(v?.type==='image-object')v.asset=idMap.get(v.asset);
-    const next={...current,books:[...current.books,...books],selected:books[0].id};
+    const next={...current,books:[...current.books,...books],folders:[...(current.folders||[]),...importedFolders],selected:books.find(b=>b.deletedAt==null)?.id||current.selected};
     await NotepadStore.write(next,assets);return next;
   }
   return {validateLibrary,create,parse,merge};

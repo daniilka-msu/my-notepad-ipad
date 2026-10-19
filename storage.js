@@ -10,9 +10,10 @@ const NotepadStore=(()=>{
     req.onupgradeneeded=()=>{const db=req.result;db.createObjectStore('library');db.createObjectStore('assets')};
     database=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);req.onblocked=()=>reject(new Error('Закройте другие вкладки приложения и повторите'))});database.onversionchange=()=>database.close();
   }
-  async function read(){return request(database.transaction('library').objectStore('library').get('current'))}
+  async function read(key='current'){return request(database.transaction('library').objectStore('library').get(key))}
+  async function upgradeLibrary(previous,next){const tx=database.transaction('library','readwrite'),done=complete(tx),store=tx.objectStore('library');store.put(previous,'before-home-v1');store.put(next,'current');await done}
   async function write(value,assets=[]){const portable=await portableAssets(assets);const tx=database.transaction(['library','assets'],'readwrite');const done=complete(tx);for(const [id,blob]of portable)tx.objectStore('assets').put(blob,id);tx.objectStore('library').put(value,'current');await done}
   async function asset(id){const value=await request(database.transaction('assets').objectStore('assets').get(id));return value?.notepadAsset===1&&value.bytes instanceof ArrayBuffer?new Blob([value.bytes],{type:value.type}):value}
   async function putAssets(entries){const portable=await portableAssets(entries);const tx=database.transaction('assets','readwrite');const done=complete(tx);for(const [id,value]of portable)tx.objectStore('assets').put(value,id);await done}
-  return {open,read,write,asset,putAssets};
+  return {open,read,write,asset,putAssets,upgradeLibrary};
 })();
