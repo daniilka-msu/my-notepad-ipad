@@ -88,7 +88,7 @@ try {
         await page.locator("#extraTools summary").click();
         await page.locator("#insertChart").click();
         await page.locator("#chartKind").selectOption(kind);
-        if(await page.evaluate(()=>ChartWizard.enabled))await page.locator('[data-chart-step="3"]').click();
+        if(await page.evaluate(()=>ChartWizard.enabled))await page.locator('[data-chart-step="3"]').click();else if(kind==="function")await page.locator("#graphAdvanced").evaluate(e=>e.open=true);
         await page.locator("#chartName").fill("Studio " + kind);
         await page
           .locator("#chartTheme")
@@ -108,6 +108,7 @@ try {
           await page.locator("#chartExpression").fill("sin(x)");
           await page.locator("#chartAddFunction").click();
           await page.locator("#chartExpression1").fill("x^2/5");
+          await page.locator("#graphPointsDetails").evaluate(e=>e.open=true);
           await page.locator("#chartAddPoint").click();
           const row = page.locator("#chartPoints tbody tr");
           await row.locator("td").nth(0).locator("input").fill("A");

@@ -164,6 +164,7 @@ const Charts = (() => {
     )
       return false;
     if (s.kind === "function") {
+      if (s.autoY !== undefined && typeof s.autoY !== "boolean") return false;
       if (
         !Array.isArray(s.functions) ||
         !s.functions.length ||

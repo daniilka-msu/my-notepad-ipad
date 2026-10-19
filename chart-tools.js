@@ -221,12 +221,21 @@ const ChartStudio = (() => {
       }));
       if (kind === "function") {
         s.functions = [...$("chartFunctions").children].map((row) => ({
-          expression: row.children[0].value,
+          expression: GraphRanges.normalize(row.children[0].value),
           name: row.children[1].value,
           color: row.children[2].value,
         }));
         for (const f of s.functions) MathExpression.compile(f.expression);
         s.expression = s.functions[0]?.expression;
+        s.autoY = !!$("graphAutoY")?.checked;
+        if (s.autoY) {
+          Object.assign(
+            s,
+            GraphRanges.automatic(s.functions, s.xMin, s.xMax, s.points),
+          );
+          $("chartYMin").value = s.yMin;
+          $("chartYMax").value = s.yMax;
+        }
       }
     }
     if (!Charts.valid(s))
@@ -337,6 +346,7 @@ const ChartStudio = (() => {
       !["function", "axes"].includes(previewSource.kind)
     )
       return;
+    if (typeof GraphTools !== "undefined") GraphTools.manualView();
     const zoom = instance.getOption().dataZoom;
     for (const [i, axis] of ["x", "y"].entries()) {
       const min = previewSource[axis + "Min"],
@@ -352,6 +362,7 @@ const ChartStudio = (() => {
       "Диапазон изменён · сохранится вместе с объектом";
   }
   function zoom(factor) {
+    if (typeof GraphTools !== "undefined") GraphTools.manualView();
     if (!instance) return;
     const options = instance.getOption().dataZoom;
     if (
@@ -394,6 +405,7 @@ const ChartStudio = (() => {
   $("chartZoomIn").onclick = () => zoom(0.7);
   $("chartZoomOut").onclick = () => zoom(1.4);
   $("chartZoomReset").onclick = () => {
+    if (typeof GraphTools !== "undefined") GraphTools.manualView();
     for (const key of ["xMin", "xMax", "yMin", "yMax"])
       $("chart" + key[0].toUpperCase() + key.slice(1)).value = initialAxes[key];
     refresh();
@@ -541,7 +553,11 @@ const ChartStudio = (() => {
       : "Вставить на страницу";
     document.dispatchEvent(
       new CustomEvent("notepad:chart-open", {
-        detail: { editing: !!source, kind: s.kind },
+        detail: {
+          editing: !!source,
+          kind: s.kind,
+          autoY: source ? !!source.autoY : true,
+        },
       }),
     );
     dialog.showModal();
@@ -658,6 +674,14 @@ const ChartStudio = (() => {
     value,
     refresh,
     instance: () => instance,
+    rememberAxes() {
+      initialAxes = Object.fromEntries(
+        ["xMin", "xMax", "yMin", "yMax"].map((key) => [
+          key,
+          Number($("chart" + key[0].toUpperCase() + key.slice(1)).value),
+        ]),
+      );
+    },
     openKind(kind) {
       open(null);
       $("chartKind").value = kind;
