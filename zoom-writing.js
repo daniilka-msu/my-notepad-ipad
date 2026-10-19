@@ -43,7 +43,10 @@ window.ZoomWriting = (() => {
     if (!r.width || !r.height) return;
     if (movingPointer === null) {
       view.width = Math.min(W, r.width / magnification);
-      view.height = Math.min(H, r.height / magnification);
+      view.height = Math.min(
+        H,
+        r.height / ((magnification * Paper.geometry(book).outputHeight) / H),
+      );
       clamp();
     }
     const metrics = surface.draw(
@@ -122,6 +125,7 @@ window.ZoomWriting = (() => {
       return;
     }
     finish();
+    window.LectureUI?.hide();
     panel.hidden = false;
     notebook = book.id;
     button.setAttribute("aria-expanded", "true");

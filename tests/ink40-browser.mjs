@@ -280,6 +280,27 @@ try {
           `${engine} DPR ${dpr} automatic advance waits for pen lift without splitting stroke`,
         );
         await tab.evaluate(async () => {
+          book.pageSize = "square";
+          render();
+          ZoomWriting.schedule();
+          await new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          );
+        });
+        check(
+          await tab.evaluate(
+            () =>
+              Math.abs(
+                ZoomWriting.view.height -
+                  $("writingCanvas").getBoundingClientRect().height /
+                    ((Number($("writingMagnification").value) *
+                      Paper.geometry(book).outputHeight) /
+                      H),
+              ) < 1,
+          ),
+          `${engine} DPR ${dpr} compact ink preserves physical proportions on square paper`,
+        );
+        await tab.evaluate(async () => {
           await save();
           window.expectedInk = JSON.stringify(book.pages);
           window.expectedExport = (
