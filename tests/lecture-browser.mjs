@@ -240,11 +240,16 @@ try {
         audioInk("pointerdown", 50);
         audioInk("pointermove", 60);
       });
-      await tab.waitForTimeout(5500);
+      for (let i = 0; i < 55; i++) {
+        await tab.evaluate((x) => audioInk("pointermove", x), 60.2 + i * 0.2);
+        await tab.waitForTimeout(100);
+      }
       check(
         await tab.evaluate(
           () =>
-            currentRecord.chunks.length > 0 && !!drawing && !writeDuringStroke,
+            currentRecord.chunks.length > 0 &&
+            drawing?.rawPoints.length >= 50 &&
+            !writeDuringStroke,
         ),
         engine +
           (nativeRecorder
@@ -267,7 +272,24 @@ try {
         ),
         engine + " pause excludes paused time and keeps microphone session",
       );
+      await tab.evaluate(() => {
+        audioInk("pointerdown", 80);
+        audioInk("pointermove", 90);
+        audioInk("pointerup", 95);
+        window.pausedNote = book.pages[0].at(-1);
+        window.marksBeforeResume = LectureUI.recorder.record.marks.length;
+      });
       await tab.locator("#resumeLecture").click();
+      await tab.evaluate(() => render());
+      check(
+        await tab.evaluate(
+          () =>
+            !pausedNote.lectureActionId &&
+            LectureUI.recorder.record.marks.length === marksBeforeResume,
+        ),
+        engine +
+          " writing during pause never gains a false timestamp after resume",
+      );
       await tab.waitForTimeout(500);
       await tab.locator("#stopLecture").click();
       await tab.waitForFunction(() => !LectureUI.recorder.active);
@@ -287,7 +309,7 @@ try {
           " stopped audio and handwritten/bookmark time references are durably saved",
       );
       await tab.locator(".lecture-row").first().click();
-      await tab.waitForFunction(()=>!!LectureUI.selected);
+      await tab.waitForFunction(() => !!LectureUI.selected);
       const canPlay = await tab.evaluate(
         () =>
           !!$("lectureAudio").canPlayType(

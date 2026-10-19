@@ -28,13 +28,15 @@ const NotepadStore=(()=>{
   }
   async function asset(id){const value=await request(database.transaction('assets').objectStore('assets').get(id));return value?.notepadAsset===1&&value.bytes instanceof ArrayBuffer?new Blob([value.bytes],{type:value.type}):value}
   async function putAssets(entries){const portable=await portableAssets(entries);const tx=database.transaction('assets','readwrite');const done=complete(tx);for(const [id,value]of portable)tx.objectStore('assets').put(value,id);await done}
-  function writeRecord(key,value,assets=[],remove=[]){
+  function writeRecord(key,value,assets=[],remove=[],removeRecords=[],canWrite=()=>true){
     const result=writes.then(async()=>{
-      const portable=await portableAssets(assets),tx=database.transaction(['library','assets'],'readwrite'),done=complete(tx);
+      const portable=await portableAssets(assets);if(!canWrite())return false;
+      const tx=database.transaction(['library','assets'],'readwrite'),done=complete(tx);
       try{
         for(const [id,blob]of portable)tx.objectStore('assets').put(blob,id);
         for(const id of remove)tx.objectStore('assets').delete(id);
-        if(value===null)tx.objectStore('library').delete(key);else tx.objectStore('library').put(value,key);
+        for(const id of removeRecords)tx.objectStore('library').delete(id);
+        if(value===null)tx.objectStore('library').delete(key);else tx.objectStore('library').put(typeof value==='function'?value():value,key);
       }catch(error){tx.abort();await done.catch(()=>{});throw error}
       await done;
     });writes=result.catch(()=>{});return result;

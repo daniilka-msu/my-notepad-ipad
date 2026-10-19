@@ -11,14 +11,17 @@ const Autosave = (() => {
       pending = null,
       timer,
       checkpoint,
-      requested = false;
+      requested = false,
+      disposed = false;
     const emit = (value) => state(value, revision !== saved);
     function schedule(delay = 3000) {
+      if (disposed) return;
       clock.clearTimeout(timer);
       if (revision !== saved)
         timer = clock.setTimeout(() => flush().catch(() => {}), delay);
     }
     function dirty() {
+      if (disposed) return;
       revision++;
       emit(pending ? "saving" : "dirty");
       schedule();
@@ -38,6 +41,7 @@ const Autosave = (() => {
       else schedule();
     }
     function flush(force = false, immediate = false) {
+      if (disposed) return Promise.resolve();
       if (force && revision === saved) dirty();
       if (pending) {
         requested = true;
@@ -59,7 +63,7 @@ const Autosave = (() => {
           : new Promise((resolve) => clock.setTimeout(resolve, 0))
       )
         .then(() => {
-          if (active()) {
+          if (disposed || active()) {
             requested = true;
             return false;
           }
@@ -95,6 +99,11 @@ const Autosave = (() => {
       input,
       idle,
       flush,
+      dispose() {
+        disposed = true;
+        clock.clearTimeout(timer);
+        clock.clearTimeout(checkpoint);
+      },
       get dirtyState() {
         return revision !== saved;
       },

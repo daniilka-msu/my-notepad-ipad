@@ -257,6 +257,13 @@ try {
               count = book.pages[0].length;
             const width = field.getBoundingClientRect().width;
             emitPen(field, "pointerdown", 10, 45);
+            if (
+              !$("writingRight").disabled ||
+              !$("writingMagnification").disabled
+            )
+              return false;
+            $("writingRight").click();
+            if (!drawing) return false;
             for (let i = 1; i <= 30; i++)
               emitPen(
                 field,
@@ -336,6 +343,88 @@ try {
             path: process.env.SCREENSHOT_DIR + "/" + engine + "-ink40.png",
           });
         }
+        await tab.evaluate(async () => {
+          const picture = document.createElement("canvas");
+          picture.width = picture.height = 32;
+          const c = picture.getContext("2d");
+          c.fillStyle = "#ff0000";
+          c.fillRect(0, 0, 32, 32);
+          const blob = await new Promise((resolve) => picture.toBlob(resolve));
+          await NotepadStore.putAssets([["compact-background", blob]]);
+          book.backgrounds = [
+            { id: "compact-background", width: 32, height: 32, text: "" },
+          ];
+          book.paper = "blank";
+          render();
+          if ($("zoomWriting").hidden) $("openZoomWriting").click();
+        });
+        await tab.waitForFunction(
+          () =>
+            $("pageBackground").complete &&
+            $("pageBackground").naturalWidth === 32,
+        );
+        await tab.evaluate(
+          () =>
+            new Promise((resolve) =>
+              requestAnimationFrame(() => requestAnimationFrame(resolve)),
+            ),
+        );
+        check(
+          await tab.evaluate(() => {
+            const field = $("writingCanvas"),
+              pixel = field
+                .getContext("2d")
+                .getImageData(
+                  Math.floor(field.width / 2),
+                  Math.floor(field.height / 2),
+                  1,
+                  1,
+                ).data;
+            return pixel[0] > 240 && pixel[1] < 10 && pixel[2] < 10;
+          }),
+          `${engine} DPR ${dpr} compact field includes imported document background`,
+        );
+        check(
+          await tab.evaluate(() => {
+            const original = HTMLCanvasElement.prototype.getContext;
+            try {
+              HTMLCanvasElement.prototype.getContext = function (...args) {
+                return this.id === "inkDetail"
+                  ? null
+                  : original.apply(this, args);
+              };
+              InkQuality.refresh();
+              return $("inkDetail").hidden && canvas.style.opacity !== "0";
+            } finally {
+              HTMLCanvasElement.prototype.getContext = original;
+            }
+          }),
+          `${engine} DPR ${dpr} high-resolution allocation failure restores main handwriting surface`,
+        );
+        check(
+          await tab.evaluate(async () => {
+            if ($("zoomWriting").hidden) $("openZoomWriting").click();
+            const original = HTMLCanvasElement.prototype.getContext;
+            try {
+              HTMLCanvasElement.prototype.getContext = function (...args) {
+                return this.id === "writingCanvas"
+                  ? null
+                  : original.apply(this, args);
+              };
+              ZoomWriting.schedule();
+              await new Promise((r) =>
+                requestAnimationFrame(() => requestAnimationFrame(r)),
+              );
+              return (
+                $("zoomWriting").hidden &&
+                $("operationStatus").textContent.includes("память")
+              );
+            } finally {
+              HTMLCanvasElement.prototype.getContext = original;
+            }
+          }),
+          `${engine} DPR ${dpr} compact-field allocation failure preserves notes and offers main sheet`,
+        );
         await context.close();
       }
     } finally {

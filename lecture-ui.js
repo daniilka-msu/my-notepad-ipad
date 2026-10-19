@@ -10,7 +10,7 @@ window.LectureUI = (() => {
   panel.hidden = true;
   panel.setAttribute("aria-label", "Лекция");
   panel.innerHTML =
-    '<div class="lecture-controls"><strong>Лекция</strong><output id="lectureTimer">00:00</output><button id="startLecture">Записать</button><button id="pauseLecture" disabled>Пауза</button><button id="resumeLecture" disabled>Продолжить</button><button id="stopLecture" disabled>Остановить</button><button id="retryLecture" hidden>Повторить сохранение</button><button id="closeLecture" aria-label="Скрыть панель лекции">Скрыть</button></div><p id="lectureStatus" role="status">Микрофон выключен. Записи хранятся только на этом устройстве.</p><p class="hint">На iPad фоновая запись не гарантируется: при скрытии приложения запись ставится на паузу. JSON-копия блокнотов не включает аудио — экспортируйте записи отдельно.</p><div class="lecture-content"><div id="lectureList" aria-label="Записи блокнота"></div><div id="lectureDetails" hidden><label>Название <input id="lectureName" maxlength="120"></label><button id="renameLecture">Переименовать</button><audio id="lectureAudio" controls preload="metadata"></audio><button id="exportLecture">Экспорт аудио</button><button id="deleteLecture">Удалить запись</button><div id="lectureTranscriptSlot"></div><div id="lectureMarks"></div></div></div><div class="lecture-controls"><input id="lectureBookmarkText" maxlength="120" placeholder="Название временной закладки" aria-label="Название временной закладки"><button id="lectureBookmark" disabled>Закладка</button><button id="lectureSeekInk" aria-pressed="false">Аудио по штриху</button></div>';
+    '<div class="lecture-controls"><strong>Лекция</strong><output id="lectureTimer">00:00</output><button id="startLecture">Записать</button><button id="pauseLecture" disabled>Пауза</button><button id="resumeLecture" disabled>Продолжить</button><button id="stopLecture" disabled>Остановить</button><button id="retryLecture" hidden>Повторить сохранение</button><button id="closeLecture" aria-label="Скрыть панель лекции">Скрыть</button></div><p id="lectureStatus" role="status">Микрофон выключен. Записи хранятся только на этом устройстве.</p><p class="hint">На iPad фоновая запись не гарантируется: при скрытии приложения запись ставится на паузу. JSON-копия блокнотов не включает аудио и расшифровки — экспортируйте их отдельно.</p><div class="lecture-content"><div id="lectureList" aria-label="Записи блокнота"></div><div id="lectureDetails" hidden><label>Название <input id="lectureName" maxlength="120"></label><button id="renameLecture">Переименовать</button><audio id="lectureAudio" controls preload="metadata"></audio><button id="exportLecture">Экспорт аудио</button><button id="deleteLecture">Удалить запись</button><div id="lectureTranscriptSlot"></div><div id="lectureMarks"></div></div></div><div class="lecture-controls"><input id="lectureBookmarkText" maxlength="120" placeholder="Название временной закладки" aria-label="Название временной закладки"><button id="lectureBookmark" disabled>Закладка</button><button id="lectureSeekInk" aria-pressed="false">Аудио по штриху</button></div>';
   $("workspace").after(panel);
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
     $("startLecture").disabled = true;
@@ -21,6 +21,7 @@ window.LectureUI = (() => {
     records = [],
     token = 0,
     known = new WeakSet(),
+    observedBooks = new WeakSet(),
     seekInk = false,
     starting = false,
     currentBook = null,
@@ -35,22 +36,31 @@ window.LectureUI = (() => {
     );
   };
   function status(message) {
-    $("lectureStatus").textContent = message;
+    if ($("lectureStatus").textContent !== message)
+      $("lectureStatus").textContent = message;
   }
   const recorder = LectureRecorder.create((state) => {
-    $("lectureTimer").textContent = time(state.elapsed);
-    button.textContent =
+    const elapsed = time(state.elapsed);
+    if ($("lectureTimer").textContent !== elapsed)
+      $("lectureTimer").textContent = elapsed;
+    const caption =
       state.state === "recording"
         ? "● Лекция"
         : recorder.active
           ? "Ⅱ Лекция"
           : "Лекция";
-    $("startLecture").disabled = starting || recorder.active;
-    $("pauseLecture").disabled = state.state !== "recording";
-    $("resumeLecture").disabled = state.state !== "paused" || !!state.error;
-    $("stopLecture").disabled = state.state === "inactive";
-    $("retryLecture").hidden = !state.error;
-    $("lectureBookmark").disabled = state.state !== "recording";
+    if (button.textContent !== caption) button.textContent = caption;
+    const disabled = {
+      startLecture: starting || recorder.active,
+      pauseLecture: state.state !== "recording",
+      resumeLecture: state.state !== "paused" || !!state.error,
+      stopLecture: state.state === "inactive",
+      lectureBookmark: state.state !== "recording",
+    };
+    for (const [id, value] of Object.entries(disabled))
+      if ($(id).disabled !== value) $(id).disabled = value;
+    if ($("retryLecture").hidden !== !state.error)
+      $("retryLecture").hidden = !state.error;
     if (state.message) status(state.message);
     else if (state.state === "recording")
       status(
@@ -116,12 +126,30 @@ window.LectureUI = (() => {
       if (recorder.active && recorder.record?.id === record.id)
         throw Error("Сначала остановите запись и дождитесь сохранения.");
       await ensureStream();
-      try{await LectureStore.loadMarks(record);}catch{status('Временные привязки недоступны; аудио можно воспроизвести или экспортировать.');}
+      try {
+        await LectureStore.loadMarks(record);
+      } catch {
+        status(
+          "Временные привязки недоступны; аудио можно воспроизвести или экспортировать.",
+        );
+      }
       selected = record;
       $("lectureDetails").hidden = false;
       $("lectureName").value = record.name;
-      $("lectureAudio").src = LectureStore.url(record);
-      if (!$("lectureAudio").canPlayType(record.mime.split(";")[0]))
+      $("lectureAudio").pause();
+      $("lectureAudio").hidden = !record.bytes;
+      $("exportLecture").disabled = !record.bytes;
+      if (record.bytes) $("lectureAudio").src = LectureStore.url(record);
+      else {
+        $("lectureAudio").removeAttribute("src");
+        status(
+          "Нет полученных аудиоданных. Можно переименовать или удалить эту запись.",
+        );
+      }
+      if (
+        record.bytes &&
+        !$("lectureAudio").canPlayType(record.mime.split(";")[0])
+      )
         status(
           "Этот браузер не поддерживает формат аудио. Запись сохранена; используйте экспорт и совместимый плеер.",
         );
@@ -182,11 +210,13 @@ window.LectureUI = (() => {
   $("startLecture").onclick = async () => {
     if (starting) return;
     starting = true;
+    $("lectureAudio").pause();
     $("startLecture").disabled = true;
     status("Разрешите доступ к микрофону в запросе браузера.");
     try {
       await recorder.start(book.id, book.name);
-      known = new WeakSet(book.pages.flat());
+      for (const item of book.pages.flat()) known.add(item);
+      observedBooks.add(book);
       selected = null;
       $("lectureDetails").hidden = true;
       refresh();
@@ -247,8 +277,15 @@ window.LectureUI = (() => {
       !confirm("Удалить эту аудиозапись и её расшифровку с устройства?")
     )
       return;
+    const deleting = selected;
     try {
-      await LectureStore.remove(selected);
+      document.dispatchEvent(
+        new CustomEvent("notepad:lecture-deleting", { detail: deleting }),
+      );
+      await LectureStore.remove(deleting);
+      document.dispatchEvent(
+        new CustomEvent("notepad:lecture-deleted", { detail: deleting }),
+      );
       $("lectureAudio").pause();
       $("lectureAudio").removeAttribute("src");
       selected = null;
@@ -256,6 +293,9 @@ window.LectureUI = (() => {
       await refresh();
       status("Запись удалена");
     } catch (error) {
+      document.dispatchEvent(
+        new CustomEvent("notepad:lecture-delete-failed", { detail: deleting }),
+      );
       status("Не удалось удалить запись: " + error.message);
     }
   };
@@ -299,7 +339,14 @@ window.LectureUI = (() => {
           );
       const id = hit && book.pages[page][hit[0]].lectureActionId,
         mark = selected.marks.find((m) => m.actionId === id && id);
-      if (mark) seek(mark.timeMs);
+      const unique =
+        id &&
+        book.pages.reduce(
+          (count, items) =>
+            count + items.filter((s) => s.lectureActionId === id).length,
+          0,
+        ) === 1;
+      if (mark && unique) seek(mark.timeMs);
       else
         status(
           "Для этого объекта нет достоверной временной привязки к выбранной записи.",
@@ -309,10 +356,16 @@ window.LectureUI = (() => {
   );
   document.addEventListener("notepad:render", () => {
     if (recorder.active && recorder.record.bookId !== book.id) recorder.pause();
+    if (!observedBooks.has(book)) {
+      observedBooks.add(book);
+      for (const s of book.pages.flat()) known.add(s);
+    }
+    const item = book.pages[page].at(-1),
+      fresh = item && !known.has(item);
+    if (fresh) delete item.lectureActionId;
+    if (item) known.add(item);
     if (recorder.state === "recording" && recorder.record.bookId === book.id) {
-      const item = book.pages[page].at(-1);
-      if (item && !known.has(item)) {
-        known.add(item);
+      if (fresh) {
         item.lectureActionId = uid();
         recorder.mark({ actionId: item.lectureActionId, page });
       }

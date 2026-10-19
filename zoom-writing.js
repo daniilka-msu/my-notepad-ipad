@@ -36,66 +36,115 @@ window.ZoomWriting = (() => {
     view.x = Math.max(0, Math.min(W - view.width, view.x));
     view.y = Math.max(0, Math.min(H - view.height, view.y));
   }
+  function lockArea() {
+    for (const id of [
+      "pickWritingArea",
+      "writingMagnification",
+      "writingRight",
+      "writingLine",
+      "writingAuto",
+    ])
+      $(id).disabled = movingPointer !== null;
+  }
+  function fieldRect() {
+    const r = field.getBoundingClientRect();
+    return {
+      left: r.left + field.clientLeft,
+      top: r.top + field.clientTop,
+      width: field.clientWidth,
+      height: field.clientHeight,
+    };
+  }
   function refresh() {
     frame = null;
     if (panel.hidden || !panel.isConnected) return;
-    const r = field.getBoundingClientRect();
-    if (!r.width || !r.height) return;
-    if (movingPointer === null) {
-      view.width = Math.min(W, r.width / magnification);
-      view.height = Math.min(
-        H,
-        r.height / ((magnification * Paper.geometry(book).outputHeight) / H),
+    try {
+      const r = fieldRect();
+      if (!r.width || !r.height) return;
+      if (movingPointer === null) {
+        view.width = Math.min(W, r.width / magnification);
+        view.height = Math.min(
+          H,
+          r.height / ((magnification * Paper.geometry(book).outputHeight) / H),
+        );
+        clamp();
+      }
+      const metrics = surface.draw(
+        book.pages[page],
+        view,
+        r.width,
+        r.height,
+        drawing,
       );
-      clamp();
+      const c = field.getContext("2d");
+      const background = book.backgrounds?.[page],
+        image = $("pageBackground");
+      const paperKey = JSON.stringify([
+        metrics.width,
+        metrics.height,
+        view,
+        book.paper,
+        book.paperColor,
+        book.gridMm,
+        book.pageSize,
+        background?.id,
+        image.currentSrc,
+        image.naturalWidth,
+        !image.hidden && image.complete,
+      ]);
+      if (paper.dataset.key !== paperKey) {
+        paper.dataset.key = paperKey;
+        paper.width = metrics.width;
+        paper.height = metrics.height;
+        const p = paper.getContext("2d");
+        p.setTransform(
+          metrics.sx,
+          0,
+          0,
+          metrics.sy,
+          -view.x * metrics.sx,
+          -view.y * metrics.sy,
+        );
+        if (!background) Paper.draw(p, book);
+        else if (!image.hidden && image.complete && image.naturalWidth) {
+          const height = Paper.geometry(book).outputHeight,
+            scale = Math.min(
+              W / image.naturalWidth,
+              height / image.naturalHeight,
+            );
+          const width = image.naturalWidth * scale,
+            docHeight = (image.naturalHeight * scale * H) / height;
+          p.drawImage(
+            image,
+            (W - width) / 2,
+            (H - docHeight) / 2,
+            width,
+            docHeight,
+          );
+        }
+      }
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.globalCompositeOperation = "destination-over";
+      c.drawImage(paper, 0, 0);
+      c.restore();
+      field.style.background =
+        paperColors[book.paperColor] || paperColors.white;
+      area.style.left = (view.x / W) * 100 + "%";
+      area.style.top = (view.y / H) * 100 + "%";
+      area.style.width = (view.width / W) * 100 + "%";
+      area.style.height = (view.height / H) * 100 + "%";
+      area.hidden = false;
+      panel.dataset.x = view.x;
+      panel.dataset.y = view.y;
+      panel.dataset.width = view.width;
+      panel.dataset.height = view.height;
+    } catch {
+      close();
+      $("operationStatus").textContent =
+        "Не удалось выделить память для окна письма. Продолжайте на основном листе.";
+      $("operationStatus").hidden = false;
     }
-    const metrics = surface.draw(
-      book.pages[page],
-      view,
-      r.width,
-      r.height,
-      drawing,
-    );
-    const c = field.getContext("2d");
-    const paperKey = JSON.stringify([
-      metrics.width,
-      metrics.height,
-      view,
-      book.paper,
-      book.paperColor,
-      book.gridMm,
-      book.pageSize,
-    ]);
-    if (paper.dataset.key !== paperKey) {
-      paper.dataset.key = paperKey;
-      paper.width = metrics.width;
-      paper.height = metrics.height;
-      const p = paper.getContext("2d");
-      p.setTransform(
-        metrics.sx,
-        0,
-        0,
-        metrics.sy,
-        -view.x * metrics.sx,
-        -view.y * metrics.sy,
-      );
-      Paper.draw(p, book);
-    }
-    c.save();
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.globalCompositeOperation = "destination-over";
-    c.drawImage(paper, 0, 0);
-    c.restore();
-    field.style.background = paperColors[book.paperColor] || paperColors.white;
-    area.style.left = (view.x / W) * 100 + "%";
-    area.style.top = (view.y / H) * 100 + "%";
-    area.style.width = (view.width / W) * 100 + "%";
-    area.style.height = (view.height / H) * 100 + "%";
-    area.hidden = false;
-    panel.dataset.x = view.x;
-    panel.dataset.y = view.y;
-    panel.dataset.width = view.width;
-    panel.dataset.height = view.height;
   }
   function schedule() {
     if (!panel.hidden && frame === null) frame = requestAnimationFrame(refresh);
@@ -117,6 +166,7 @@ window.ZoomWriting = (() => {
     paper.width = paper.height = 1;
     paper.dataset.key = "";
     movingPointer = null;
+    lockArea();
     button.focus({ preventScroll: true });
   }
   button.onclick = () => {
@@ -184,7 +234,7 @@ window.ZoomWriting = (() => {
     schedule();
   };
   function mapped(e) {
-    const r = field.getBoundingClientRect(),
+    const r = fieldRect(),
       main = canvas.getBoundingClientRect();
     const x = view.x + ((e.clientX - r.left) / r.width) * view.width,
       y = view.y + ((e.clientY - r.top) / r.height) * view.height;
@@ -226,6 +276,7 @@ window.ZoomWriting = (() => {
           return;
         if (!["pen", "marker", "eraser"].includes(tool)) Editor.choose("pen");
         refresh();
+        if (panel.hidden) return;
       } else if (movingPointer !== e.pointerId) return;
       e.preventDefault();
       const event = mapped(e);
@@ -242,9 +293,11 @@ window.ZoomWriting = (() => {
       if (type === "pointerdown") movingPointer = e.pointerId;
       canvas.dispatchEvent(event);
       if (type === "pointerdown" && !drawing) movingPointer = null;
+      lockArea();
       if (["pointerup", "pointercancel", "lostpointercapture"].includes(type)) {
         const completed = book.pages[page].at(-1);
         movingPointer = null;
+        lockArea();
         if (
           $("writingAuto").checked &&
           completed?.tool !== "eraser" &&
@@ -256,6 +309,7 @@ window.ZoomWriting = (() => {
       schedule();
     });
   new ResizeObserver(schedule).observe(field);
+  $("pageBackground").addEventListener("load", schedule);
   document.addEventListener("notepad:render", () => {
     if (!panel.hidden && book.id !== notebook) {
       close();

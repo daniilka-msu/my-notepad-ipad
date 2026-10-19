@@ -12,16 +12,18 @@ const LectureRecorder = (() => {
       timer = null,
       stopPromise = null,
       stopResolve,
-      starting = false;
+      starting = false,
+      notice = null;
     const elapsed = () =>
       base + (started !== null ? performance.now() - started : 0);
     function notify(message) {
+      if (message !== undefined) notice = message;
       onState({
         record,
         state: recorder?.state || "inactive",
         pending: queue.reduce((n, p) => n + p.blob.size, 0),
         error,
-        message,
+        message: notice,
         elapsed: elapsed(),
       });
     }
@@ -58,8 +60,15 @@ const LectureRecorder = (() => {
             durationMs: base,
           });
           stopping = false;
+          error = null;
           clearInterval(timer);
-          notify("Запись сохранена на устройстве");
+          notify(
+            record.bytes
+              ? record.interruption
+                ? "Запись прервана; полученные аудиочасти сохранены."
+                : "Запись сохранена на устройстве"
+              : "Запись остановлена без полученных аудиоданных.",
+          );
           stopResolve?.();
         } catch (e) {
           error = e;
@@ -80,6 +89,7 @@ const LectureRecorder = (() => {
       if (usage?.quota - usage?.usage < 20 * 1024 * 1024)
         throw Error("Недостаточно свободного места. Освободите минимум 20 МБ.");
       error = null;
+      notice = null;
       base = 0;
       queue = [];
       stopPromise = null;
@@ -184,6 +194,7 @@ const LectureRecorder = (() => {
       )
         return;
       started = performance.now();
+      notice = null;
       recorder.resume();
       notify();
     }
@@ -193,16 +204,12 @@ const LectureRecorder = (() => {
       stopPromise = new Promise((resolve) => (stopResolve = resolve));
       clockPause();
       stopping = true;
-      if (recorder.state === "inactive") {
-        stream?.getTracks().forEach((t) => t.stop());
-        stream = null;
-        recorder = null;
-        drain();
-      } else recorder.stop();
+      if (recorder.state !== "inactive") recorder.stop();
       return stopPromise;
     }
     function retry() {
       error = null;
+      notice = null;
       drain();
     }
     function mark(mark) {

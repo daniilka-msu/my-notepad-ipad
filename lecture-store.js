@@ -109,6 +109,7 @@ const LectureStore = (() => {
       null,
       [],
       [...record.chunks.map((c) => c.asset), ...(record.markAssets || [])],
+      ['transcript/'+encodeURIComponent(record.bookId)+'/'+record.id],
     );
   }
   function url(record, download = false) {

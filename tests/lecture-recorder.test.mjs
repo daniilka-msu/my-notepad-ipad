@@ -165,3 +165,22 @@ test("lost microphone stops tracks and marks interruption", async () => {
   assert.equal(s.rec.record.bytes, 5);
   assert.equal(s.stopped, 1);
 });
+test("native recorder error waits for final data and stop before allowing another session", async () => {
+  const s = setup();
+  await s.rec.start("book", "Book");
+  const first = s.rec.record,
+    native = s.native;
+  native.state = "inactive";
+  native.onerror({ error: Error("microphone failed") });
+  assert.equal(s.rec.active, true);
+  await assert.rejects(s.rec.start("book", "Book"));
+  native.emit(new Blob(["tail"]));
+  native.onstop();
+  await tick();
+  assert.equal(first.bytes, 4);
+  assert.equal(s.rec.active, false);
+  await s.rec.start("book", "Book");
+  assert.notEqual(s.rec.record, first);
+  assert.equal(s.rec.record.bytes, 0);
+  await s.rec.stop();
+});

@@ -189,3 +189,15 @@ test("an unfinished new stroke stays dirty when the previous write completes", a
   assert.equal(s.save.dirtyState, true);
   assert.equal(s.states.at(-1)[0], "dirty");
 });
+test("disposing a deleted document cancels pending preparation and future timers", async () => {
+  const s = setup();
+  s.save.dirty();
+  const preparing = s.save.flush();
+  s.save.dispose();
+  await s.tick(0);
+  await preparing;
+  await s.tick(600000);
+  assert.equal(s.writes, 0);
+  await s.save.flush(true);
+  assert.equal(s.writes, 0);
+});
