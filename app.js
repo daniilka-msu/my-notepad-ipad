@@ -281,8 +281,8 @@ $('fileInput').onchange=async e=>{
     }
 
     // Commit the new library only after every background has been stored.
-    const next={...data,books:[...data.books,...imported.map(item=>Library.initialize({...item.book,createdAt:Date.now(),modifiedAt:Date.now()}))],selected:imported.at(-1).book.id};await NotepadStore.write(next,imported.flatMap(item=>item.assets));data=next;page=0;redo=[];render();
-  }catch(error){alert('Импорт не выполнен: '+error.message)}finally{dialog.close();dialog.remove()}
+    const next={...data,books:[...data.books,...imported.map(item=>Library.initialize({...item.book,createdAt:Date.now(),modifiedAt:Date.now()}))],selected:imported.at(-1).book.id};await NotepadStore.write(next,imported.flatMap(item=>item.assets));data=next;page=0;redo=[];render();if(typeof Home!=='undefined')Home.notify('Документ импортирован');
+  }catch(error){if(typeof Home!=='undefined')Home.notify('Импорт не выполнен: '+(error?.message||'ошибка файла'),{error:true});else alert('Импорт не выполнен: '+error.message)}finally{dialog.close();dialog.remove()}
 };
 $('exportPdf').onclick=async()=>{
   finish();const notebook=book;

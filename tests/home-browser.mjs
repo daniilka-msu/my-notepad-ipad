@@ -97,6 +97,7 @@ try {
         ),
         engine + " starts with real empty home, without fictitious notebooks",
       );
+      assert(await page.evaluate(()=>{try{Backups.validateLibrary({libraryVersion:1,books:[{id:'invalid-date',name:'Bad date',paper:'grid',pages:[[]],modifiedAt:Number.MAX_VALUE}]});return false}catch{return true}}),engine+' rejects backup dates that cannot be displayed');
       await page.locator("#newFolder").click();
       await page.locator("#folderName").fill("Учёба");
       await page.locator("#saveFolder").click();

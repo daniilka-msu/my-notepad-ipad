@@ -12,7 +12,7 @@ const Backups=(()=>{
     const ids=new Set();
     for(const b of library.books){
       if(!isObject(b)||typeof b.id!=='string'||ids.has(b.id)||typeof b.name!=='string'||!Array.isArray(b.pages)||!b.pages.length)throw new Error('Неверная структура тетради');
-      if(['createdAt','modifiedAt','lastOpenedAt','deletedAt'].some(k=>b[k]!==undefined&&b[k]!==null&&(!Number.isFinite(b[k])||b[k]<0))||(b.favorite!==undefined&&typeof b.favorite!=='boolean')||(b.folderId!==undefined&&b.folderId!==null&&typeof b.folderId!=='string')||(b.cover!==undefined&&(!isObject(b.cover)||!/^#[0-9a-f]{6}$/i.test(b.cover.color)||!['plain','band','dots'].includes(b.cover.pattern))))throw new Error('Повреждены свойства блокнота');
+      if(['createdAt','modifiedAt','lastOpenedAt','deletedAt'].some(k=>b[k]!==undefined&&b[k]!==null&&(!Number.isFinite(b[k])||b[k]<0||b[k]>8640000000000000))||(b.favorite!==undefined&&typeof b.favorite!=='boolean')||(b.folderId!==undefined&&b.folderId!==null&&typeof b.folderId!=='string')||(b.cover!==undefined&&(!isObject(b.cover)||!/^#[0-9a-f]{6}$/i.test(b.cover.color)||!['plain','band','dots'].includes(b.cover.pattern))))throw new Error('Повреждены свойства блокнота');
       ids.add(b.id);if(!['grid','lines','dots','blank'].includes(b.paper))throw new Error('Неизвестная разлиновка');
       if(b.paperColor&&!['white','cream','gray','black'].includes(b.paperColor))throw new Error('Неверный цвет бумаги');
       if(b.gridMm!==undefined&&![5,7,10].includes(b.gridMm))throw new Error('Неверный размер клетки');

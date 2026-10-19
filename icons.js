@@ -1,5 +1,6 @@
 const NotepadIcons=(()=>{
   const paths={
+    folder:'M3 6h7l2 2h9v12H3zM3 6V4h7l2 2',
     home:'m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7',
     chart:'M3 3v18h18M7 17v-5M12 17V7M17 17V4',
     formula:'M5 4h14L10 12l9 8H5M3 4h2M3 20h2',table:'M3 4h18v16H3zM3 9h18M9 4v16M15 4v16',star:'m12 3 3 6 6 1-4.5 4.5L18 21l-6-3-6 3 1.5-6.5L3 10l6-1 3-6Z',

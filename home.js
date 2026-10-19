@@ -60,7 +60,8 @@ const Home = (() => {
           year: "numeric",
         }).format(value)
       : "Сохранён ранее";
-  function notice(message) {
+  function notice(message, { error = false } = {}) {
+    $("homeNotice").dataset.kind = error ? "error" : "success";
     clearTimeout(noticeTimer);
     $("homeNotice").textContent = message;
     $("homeNotice").hidden = false;
@@ -105,9 +106,16 @@ const Home = (() => {
     }
     document.dispatchEvent(new Event("notepad:screen"));
   }
+  function closeDialogs() {
+    for (const d of document.querySelectorAll("dialog[open]")) {
+      d.dispatchEvent(new Event("cancel", { cancelable: true }));
+      if (d.open) d.close();
+    }
+  }
   function show({ history: push = true } = {}) {
     finish();
     remember();
+    closeDialogs();
     ShapeTools.clear();
     TextTools.clear();
     ObjectTools.clear();
@@ -126,6 +134,7 @@ const Home = (() => {
     }
     finish();
     remember();
+    closeDialogs();
     Sidebar.close({ restoreFocus: false });
     data.selected = b.id;
     page = views.get(id)?.page ?? 0;
@@ -145,10 +154,19 @@ const Home = (() => {
     $("bookTitle").focus({ preventScroll: true });
     return true;
   }
+  function failure(message) {
+    notice(message, { error: true });
+    for (const [dialog, field] of [
+      ["notebookDialog", "notebookError"],
+      ["notebookActions", "notebookActionError"],
+      ["folderDialog", "folderError"],
+    ])
+      if ($(dialog).open) $(field).textContent = message;
+  }
   async function commit(change, message) {
     if (busy) return false;
     if (!storageReady || storageFailed) {
-      notice("Хранилище недоступно. Сначала сохраните резервную копию.");
+      failure("Хранилище недоступно. Сначала сохраните резервную копию.");
       return false;
     }
     busy = true;
@@ -176,7 +194,7 @@ const Home = (() => {
       notice(message);
       return true;
     } catch (error) {
-      notice(error?.message || "Не удалось сохранить изменения");
+      failure(error?.message || "Не удалось сохранить изменения");
       return false;
     } finally {
       busy = false;
@@ -383,6 +401,7 @@ const Home = (() => {
     button.disabled = b.deletedAt != null;
     button.onclick = () => open(b.id);
     article.append(button);
+    if (recent) return article;
     const actions = document.createElement("div");
     actions.className = "home-card-actions";
     if (b.deletedAt != null) {
@@ -547,6 +566,7 @@ const Home = (() => {
     open,
     show,
     refresh: renderHome,
+    notify: notice,
     ready: initialized,
     get active() {
       return active;

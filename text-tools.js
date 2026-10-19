@@ -25,7 +25,7 @@ const TextTools = (() => {
     const s={type:'text-block',x:old?.x??draft.point.x,y:old?.y??draft.point.y,width:old?.width??Math.max(40,Math.min(320,W-draft.point.x)),text:$('textContent').value,font:$('textFont').value,size:Number($('textSize').value),color:$('textColor').value,align:$('textAlign').value,bold:$('textBold').checked,italic:$('textItalic').checked,underline:$('textUnderline').checked,background:$('textBackgroundEnabled').checked?$('textBackground').value:null};
     if(!TextBlocks.valid(s)||!s.text.trim()){$('textContent').focus();return}
     if(old)commit(s);else{const items=book.pages[page];items.push(s);selection={book,page,items,index:items.length-1};redo=[];render()}
-    dialog.close();update();
+    dialog.close();update();if(!old)document.dispatchEvent(new Event("notepad:text-added"));
   };
   function start(e,mode){const s=current();if(!s)return;try{canvas.setPointerCapture(e.pointerId)}catch{return}drag={id:e.pointerId,type:e.pointerType,time:e.timeStamp,point:pos(e),original:structuredClone(s),mode};e.preventDefault();e.stopImmediatePropagation()}
   canvas.addEventListener('pointerdown',e=>{

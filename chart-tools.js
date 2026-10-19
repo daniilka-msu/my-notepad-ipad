@@ -113,8 +113,11 @@ const ChartStudio = (() => {
       });
   }
   function readNumber(input) {
-    if (!input.value.trim() || !Number.isFinite(Number(input.value)))
+    if (!input.value.trim() || !Number.isFinite(Number(input.value))) {
+      input.setAttribute("aria-invalid", "true");
       throw new Error("Заполните числовые ячейки");
+    }
+    input.removeAttribute("aria-invalid");
     return Number(input.value);
   }
   function addNode(
@@ -225,7 +228,16 @@ const ChartStudio = (() => {
           name: row.children[1].value,
           color: row.children[2].value,
         }));
-        for (const f of s.functions) MathExpression.compile(f.expression);
+        for (const [index, f] of s.functions.entries()) {
+          const field = $("chartFunctions").children[index].children[0];
+          try {
+            MathExpression.compile(f.expression);
+            field.removeAttribute("aria-invalid");
+          } catch (error) {
+            field.setAttribute("aria-invalid", "true");
+            throw error;
+          }
+        }
         s.expression = s.functions[0]?.expression;
         s.autoY = !!$("graphAutoY")?.checked;
         if (s.autoY) {
@@ -325,6 +337,7 @@ const ChartStudio = (() => {
       const s = value();
       $("chartError").textContent = "";
       $("applyChart").disabled = false;
+      $("chartForm").removeAttribute("aria-invalid");
       if (!instance) return;
       previewSource = structuredClone(s);
       instance.setOption(Charts.option(s, true, instance.getWidth()), {
@@ -336,6 +349,7 @@ const ChartStudio = (() => {
     } catch (error) {
       $("chartError").textContent = error.message;
       $("applyChart").disabled = true;
+      $("chartForm").setAttribute("aria-invalid", "true");
       $("chartDraftStatus").textContent = "Исправьте данные перед сохранением";
     }
   }
@@ -562,6 +576,7 @@ const ChartStudio = (() => {
     );
     dialog.showModal();
     dialog.scrollTop = 0;
+    $("chartForm").scrollTop = 0;
     if (instance) instance.dispose();
     instance = echarts.init($("chartPreview"), null, {
       renderer: "canvas",

@@ -9,7 +9,7 @@ const ObjectTools = (() => {
   function cancel(){if(drag){drag=null;Shapes.setPreview(null);paint()}update()}
   function commit(value){const old=current();if(!old)return;if(old.locked&&value?.locked!==false)return;if(value!==null&&!types.get(old.type).valid(value)){cancel();return}selection.items.push({type:'object-edit',target:selection.index,value});redo=[];Shapes.setPreview(null);drag=null;render()}
   function select(index){Editor.choose('pageObject');selection={book,page,items:book.pages[page],index};update()}
-  function add(value){if(!types.get(value.type)?.valid(value))throw new Error('Неверные параметры объекта');finish();book.pages[page].push(value);redo=[];render();select(book.pages[page].length-1)}
+  function add(value){if(!types.get(value.type)?.valid(value))throw new Error('Неверные параметры объекта');finish();book.pages[page].push(value);redo=[];render();select(book.pages[page].length-1);document.dispatchEvent(new CustomEvent("notepad:object-added",{detail:{type:value.type,kind:value.kind}}))}
   $('editObject').onclick=()=>{const s=current();if(s)types.get(s.type).edit(s,commit)};$('deleteObject').onclick=()=>{commit(null);clear()};$('deselectObject').onclick=clear;
   for(const [id,placement]of [['objectFront','front'],['objectBack','back']])$(id).onclick=()=>{if(!current()||current().locked)return;selection.items.push({type:'object-order',target:selection.index,placement});redo=[];render()};
   function start(e,mode){const s=current();if(!s||s.locked)return;try{canvas.setPointerCapture(e.pointerId)}catch{return}drag={id:e.pointerId,type:e.pointerType,time:e.timeStamp,point:pos(e),original:structuredClone(s),mode};e.preventDefault();e.stopImmediatePropagation()}

@@ -65,6 +65,10 @@ const GraphTools = (() => {
   functions.firstElementChild.after(examples);
   let active = false;
   function configure() {
+    for (const input of $("chartFunctions").querySelectorAll(
+      "input[type=color]",
+    ))
+      input.style.backgroundColor = input.value;
     const next = $("chartKind").value === "function",
       entering = next && !active;
     active = next;
