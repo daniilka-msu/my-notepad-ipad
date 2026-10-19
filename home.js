@@ -115,6 +115,7 @@ const Home = (() => {
   function show({ history: push = true } = {}) {
     finish();
     remember();
+    flushChanges();
     closeDialogs();
     ShapeTools.clear();
     TextTools.clear();

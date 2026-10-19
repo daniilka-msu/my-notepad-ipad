@@ -53,19 +53,23 @@ for(const id of ['penType','smoothing','opacity','color','width','eraserMode']){
 }
 syncCorrection();
 canvas.width=W*2;canvas.height=H*2;ctx.scale(2,2);
-let storageReady=false,storageFailed=false,unsaved=false,saveVersion=0;
-function save(){
-  if(!storageReady){unsaved=true;return Promise.resolve()}
-  const version=++saveVersion;unsaved=true;$('saveStatus').textContent='Сохранение…';
-  return NotepadStore.write(data).then(()=>{
-    if(version!==saveVersion)return;
-    unsaved=false;storageFailed=false;$('saveStatus').textContent='Сохранено на устройстве';if($('saveWarning'))$('saveWarning').hidden=true;
-  },()=>{
-    unsaved=true;storageFailed=true;$('saveStatus').textContent='Не сохранено — сделайте резервную копию';if($('saveWarning'))$('saveWarning').hidden=false;
-    throw new Error('Не удалось сохранить тетрадь. Проверьте свободное место.');
-  });
-}
-function autosave(){save().catch(()=>{})}
+let storageReady=false,storageFailed=false,unsaved=false;
+const saving=Autosave.create({
+  write:()=>NotepadStore.write(()=>data,[],()=>!drawing),active:()=>!!drawing,ready:()=>storageReady,
+  state:(value,dirty)=>{
+    unsaved=dirty;
+    if(value==='error')storageFailed=true;
+    if(value==='saved')storageFailed=false;
+    $('saveStatus').textContent=({dirty:'Есть несохранённые изменения',saving:'Сохранение…',saved:'Все изменения сохранены',error:'Ошибка сохранения'})[value];
+    $('saveStatus').dataset.state=value;
+    if($('saveWarning'))$('saveWarning').hidden=!storageFailed;
+  }
+});
+$('saveStatus').setAttribute('role','status');
+$('saveStatus').setAttribute('aria-live','polite');
+function save(){return storageReady?saving.flush(true):Promise.reject(new Error('Хранилище недоступно'))}
+function autosave(){saving.dirty()}
+function flushChanges(immediate=false){saving.flush(false,immediate).catch(()=>{})}
 function selected(){book=Library.active(data).find(b=>b.id===data.selected)||Library.active(data)[0]||emptyDocument;data.selected=book.id;page=Math.min(page,book.pages.length-1)}
 function visibleBooks(){
   const query=($('bookSearch')?.value||'').trim().toLocaleLowerCase('ru');let books=Library.active(data).filter(b=>b.name.toLocaleLowerCase('ru').includes(query));
@@ -133,6 +137,10 @@ function paint(includePreview=true){
   ctx.clearRect(0,0,W,H);
   if(!previewErasure&&!previewShape&&cachedItems===items&&cachedLength===items.length&&cachedLast===items.at(-1)){
     ctx.drawImage(committedLayer,0,0,W,H);
+  }else if(!previewErasure&&!previewShape&&cachedItems===items&&cachedLength===items.length-1&&cachedLast===items.at(-2)&&['pen','marker'].includes(items.at(-1)?.tool)&&!items.at(-1)?.type&&!items.some(s=>s.type==='object-order')){
+    ctx.drawImage(committedLayer,0,0,W,H);stroke(items.at(-1));
+    const layer=committedLayer.getContext('2d');layer.clearRect(0,0,committedLayer.width,committedLayer.height);layer.drawImage(canvas,0,0);
+    cachedLength=items.length;cachedLast=items.at(-1);
   }else{
     const hidden=new Set(items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets));
     if(previewErasure)for(const index of erasedTargets(drawing,items))hidden.add(index);
@@ -141,12 +149,13 @@ function paint(includePreview=true){
   }
   if(drawing&&drawing.tool!=='stroke-eraser')stroke(drawing);
 }
-function render(){renderBooks();Library.track(book);$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;
+let renderedPage=null;
+function render(){const previousPage=renderedPage;renderBooks();renderedPage=book.pages[page];Library.track(book);$('bookTitle').textContent=book.name;$('paper').value=book.paper;$('page').className=book.paper;
   // Keep the original coordinate system: changing page format never rescales old notes.
   Paper.apply($('page'),book,page);$('gridSize').value=book.gridMm||'legacy';$('gridSize').disabled=book.paper!=='grid';
   $('page').style.setProperty('--paper',paperColors[book.paperColor]||paperColors.white);
   $('page').style.setProperty('--rule',['gray','black'].includes(book.paperColor)?'#596273':'#dce7f6');
-  $('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();updateBackground();autosave();document.dispatchEvent(new Event('notepad:render'))}
+  $('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();updateBackground();autosave();if(previousPage&&previousPage!==renderedPage)flushChanges();document.dispatchEvent(new Event('notepad:render'))}
 function pos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H,p:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1?e.pressure:.5,pressureValid:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1}}
 function filterPoint(point,last,smoothing,stabilization){
   if(!last)return {...point};
@@ -199,7 +208,7 @@ function finish(){
   if(drawing.tool==='stroke-eraser')drawing.targets=erasedTargets(drawing,strokePage);
   strokePage.push(drawing);drawing=null;activePointer=null;activeType=null;strokePage=null;lastSample=null;redo=[];
   if(canvas.hasPointerCapture(pointer))canvas.releasePointerCapture(pointer);
-  render();
+  render();saving.idle();
 }
 canvas.addEventListener('pointerdown',e=>{
   if(!validPosition(e)||!Number.isFinite(e.timeStamp)||!['touch','pen','mouse'].includes(e.pointerType))return;
@@ -218,6 +227,7 @@ canvas.addEventListener('pointerdown',e=>{
   drawing={brushVersion:1,seed:crypto.getRandomValues(new Uint32Array(1))[0],filtered:true,stabilization:preferences.stabilization,tool,color:$('color').value,width:Number($('width').value)*(['pen','shape'].includes(tool)?1:5),penType:tool==='marker'?'marker':preferences.penType,smoothing:preferences.smoothing,opacity:preferences.opacity/100,pressure:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1,points:[pos(e)]};
   if(tool==='shape'){drawing.shape=$('shapeKind').value;drawing.shapeVersion=1;drawing.shapeStart={...drawing.points[0]};drawing.shapeEnd={...drawing.points[0]};drawing.fill=$('shapeFillEnabled').checked&&Shapes.closed.has(drawing.shape)?$('shapeFill').value:null;drawing.color=$('shapeColor').value;drawing.width=Number($('shapeWidth').value);drawing.opacity=Number($('shapeOpacity').value)/100;drawing.tool='pen';drawing.pressure=false;drawing.smoothing=0}
   if(tool==='eraser'&&preferences.eraserMode==='stroke')drawing.tool='stroke-eraser';
+  saving.input();
   schedulePaint();
 });
 canvas.addEventListener('pointermove',e=>{
@@ -242,8 +252,8 @@ canvas.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 canvas.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 // Commit before a toolbar action or page change, including keyboard activation.
 document.addEventListener('click',e=>{if(!canvas.contains(e.target))finish()},true);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)finish()});
-window.addEventListener('pagehide',finish);
+document.addEventListener('visibilitychange',()=>{if(document.hidden){finish();flushChanges(true)}});
+window.addEventListener('pagehide',()=>{finish();flushChanges(true)});
 window.addEventListener('blur',finish);
 document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.tool;document.querySelectorAll('.tool').forEach(x=>x.classList.toggle('active',x===b))});
 $('undo').onclick=()=>{const s=book.pages[page].pop();if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s)book.pages[page].push(s);render()};
