@@ -7,7 +7,7 @@ let book,page=0,tool='pen',drawing=null,redo=[];
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),W=794;
 let H=1123;
 const paperColors={white:'#ffffff',cream:'#fff6df',gray:'#30343d',black:'#101114'};
-let preferences={theme:'system',buttonSize:'normal',toolbarPosition:'top',showSidebar:false,compact:false,penType:'regular',smoothing:20,stabilization:0,opacity:100,color:'#222222',width:3,eraserMode:'pixel'};
+let preferences={theme:'system',buttonSize:'normal',toolbarPosition:'top',showSidebar:false,compact:false,penType:'regular',smoothing:20,stabilization:0,opacity:100,color:'#222222',width:3,eraserMode:'pixel',openToolOptions:false};
 try{preferences={...preferences,...JSON.parse(localStorage.getItem('notepad-preferences')||'{}')}}catch{}
 if(!Number.isFinite(preferences.stabilization))preferences.stabilization=0;
 const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
@@ -126,9 +126,17 @@ function segmentDistance(a,b,c,d){
   if(denominator){const t=((c.x-a.x)*sy-(c.y-a.y)*sx)/denominator,u=((c.x-a.x)*ry-(c.y-a.y)*rx)/denominator;if(t>=0&&t<=1&&u>=0&&u<=1)return 0}
   return Math.min(pointSegmentDistance(a,c,d),pointSegmentDistance(b,c,d),pointSegmentDistance(c,a,b),pointSegmentDistance(d,a,b));
 }
-function erasedTargets(eraser,items){return Shapes.resolve(items,false).flatMap((item,index)=>{
-  if(!item?.points||item.tool==='eraser'||item.tool==='stroke-eraser')return [];
-  const hit=eraser.points.some((p,j)=>item.points.some((b,i)=>segmentDistance(eraser.points[Math.max(0,j-1)],p,item.points[Math.max(0,i-1)],b)<(eraser.width+item.width)/2));
+function erasedTargets(eraser,items){
+  const scale=Paper.geometry(book).outputHeight/1123;
+  const physical=p=>({x:p.x,y:p.y*scale});
+  const path=eraser.points.map(physical);
+  const bounds=points=>points.reduce((r,p)=>({left:Math.min(r.left,p.x),right:Math.max(r.right,p.x),top:Math.min(r.top,p.y),bottom:Math.max(r.bottom,p.y)}),{left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity});
+  const area=bounds(path);
+  return Shapes.resolve(items,false).flatMap((item,index)=>{
+  if(!item?.points||item.type||item.shape||!['pen','marker'].includes(item.tool))return [];
+  const points=item.points.map(physical),box=bounds(points),radius=(eraser.width+item.width)/2;
+  if(box.left>area.right+radius||box.right<area.left-radius||box.top>area.bottom+radius||box.bottom<area.top-radius)return [];
+  const hit=path.some((p,j)=>points.some((b,i)=>segmentDistance(path[Math.max(0,j-1)],p,points[Math.max(0,i-1)],b)<=radius));
   return hit?[index]:[];
 })}
 const committedLayer=document.createElement('canvas');committedLayer.width=canvas.width;committedLayer.height=canvas.height;
@@ -179,13 +187,13 @@ function appendPoint(e,endpoint=false){
   if(distance===0)return;
   const elapsed=Math.min(50,Math.max(0,e.timeStamp-lastSample.time));
   // A release is not a new movement sample: never chase a distant lift-off coordinate.
-  if(!drawing.shape&&distance>(endpoint?32:Math.max(160,elapsed*6))){if(!endpoint)finish();return}
+  if(!drawing.shape&&!['eraser','stroke-eraser'].includes(drawing.tool)&&distance>(endpoint?32:Math.max(160,elapsed*6))){if(!endpoint)finish();return}
   const point=pos(e),last=drawing.points.at(-1);
   if(!drawing.shape&&!endpoint&&activeType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1)drawing.pressure=true;
   if(endpoint){point.p=last.p;point.pressureValid=last.pressureValid}
   if(drawing.shape){drawing.shapeEnd={...point};drawing.points=shapePoints(drawing.shape,drawing.shapeStart||drawing.points[0],point);lastSample={x:e.notepadInputX??e.clientX,y:e.notepadInputY??e.clientY,time:e.timeStamp};return}
   drawing.rawPoints?.push({...point});
-  drawing.points.push(filterPoint(point,last,drawing.smoothing,drawing.stabilization));
+  drawing.points.push(['eraser','stroke-eraser'].includes(drawing.tool)?point:filterPoint(point,last,drawing.smoothing,drawing.stabilization));
   lastSample={x:e.notepadInputX??e.clientX,y:e.notepadInputY??e.clientY,time:e.timeStamp};
 }
 const inputModeControl=document.createElement('label');
@@ -210,7 +218,11 @@ function finish(){
   if(!drawing)return;
   const pointer=activePointer;
   clearTimeout(holdTimer);
-  if(drawing.tool==='stroke-eraser')drawing.targets=erasedTargets(drawing,strokePage);
+  if(drawing.tool==='stroke-eraser'){
+    drawing.targets=erasedTargets(drawing,strokePage);
+    for(const index of drawing.targets)strokePage[index].strokeId??=uid();
+    drawing.targetIds=drawing.targets.map(index=>strokePage[index].strokeId);
+  }
   strokePage.push(drawing);drawing=null;activePointer=null;activeType=null;strokePage=null;lastSample=null;redo=[];
   if(captureTarget.hasPointerCapture(pointer))captureTarget.releasePointerCapture(pointer);
   render();saving.idle();document.dispatchEvent(new CustomEvent('notepad:stroke-end',{detail:{bookId:book.id,page,index:book.pages[page].length-1}}));
@@ -234,6 +246,8 @@ canvas.addEventListener('pointerdown',e=>{
   if(tool!=='shape'){drawing.rawPoints=[{...drawing.points[0]}];drawing.tightSampling=true}
   if(tool==='shape'){drawing.shape=$('shapeKind').value;drawing.shapeVersion=1;drawing.shapeStart={...drawing.points[0]};drawing.shapeEnd={...drawing.points[0]};drawing.fill=$('shapeFillEnabled').checked&&Shapes.closed.has(drawing.shape)?$('shapeFill').value:null;drawing.color=$('shapeColor').value;drawing.width=Number($('shapeWidth').value);drawing.opacity=Number($('shapeOpacity').value)/100;drawing.tool='pen';drawing.pressure=false;drawing.smoothing=0}
   if(tool==='eraser'&&preferences.eraserMode==='stroke')drawing.tool='stroke-eraser';
+  if(tool==='eraser')drawing.width=Number.isFinite(preferences.eraserWidth)?Math.max(5,Math.min(125,preferences.eraserWidth)):15;
+  if(['pen','marker'].includes(drawing.tool)&&!drawing.shape)drawing.strokeId=uid();
   saving.input();
   schedulePaint();
 });
