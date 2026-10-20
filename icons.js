@@ -1,5 +1,6 @@
 const NotepadIcons=(()=>{
   const paths={
+    lasso:'M17 16c3-1 5-3 5-6 0-4-5-7-11-7S1 6 1 10s5 7 11 7h2M14 15c-3 0-5 2-5 4 0 1 1 2 2 2 3 0 4-3 3-6Z',
     folder:'M3 6h7l2 2h9v12H3zM3 6V4h7l2 2',
     home:'m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7',
     chart:'M3 3v18h18M7 17v-5M12 17V7M17 17V4',

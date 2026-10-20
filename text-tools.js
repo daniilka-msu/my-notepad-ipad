@@ -8,13 +8,14 @@ const TextTools = (() => {
   const frame=document.createElement('div');frame.id='textSelection';frame.hidden=true;frame.innerHTML='<button id="resizeText" aria-label="Изменить ширину текста"></button>';$('page').append(frame);Interface.decorate($('resizeText'),'focus','Изменить ширину текста',true);
   const inspector=document.createElement('div');inspector.id='textInspector';inspector.hidden=true;inspector.innerHTML='<button id="editText">Редактировать текст</button><button id="deleteText">Удалить текст</button><button id="deselectText">Снять выделение</button>';$('workspace').append(inspector);
   let selection=null,drag=null,draft=null;
+  function hit(s,p){const b=window.SceneObjects?SceneObjects.bounds(s):{x:s.x,y:s.y,width:s.width,height:TextBlocks.layout(s).height};return p.x>=b.x&&p.x<=b.x+b.width&&p.y>=b.y&&p.y<=b.y+b.height}
   function preview(){const field=$('textContent');field.style.fontFamily=TextBlocks.fonts[$('textFont').value];field.style.fontSize=$('textSize').value+'px';field.style.fontWeight=$('textBold').checked?'bold':'normal';field.style.fontStyle=$('textItalic').checked?'italic':'normal';field.style.textAlign=$('textAlign').value;field.style.color=$('textColor').value;field.style.background=$('textBackgroundEnabled').checked?$('textBackground').value:(paperColors[book.paperColor]||paperColors.white);field.style.textDecoration=$('textUnderline').checked?'underline':'none'}
   for(const id of ['textFont','textSize','textBold','textItalic','textAlign','textColor','textUnderline','textBackgroundEnabled','textBackground'])$(id).addEventListener('input',preview);
   function current(){if(!selection||selection.book!==book||selection.page!==page||selection.items!==book.pages[page])return null;const erased=selection.items.some(s=>s.tool==='stroke-eraser'&&s.targets.includes(selection.index));const s=Shapes.resolve(selection.items)[selection.index];return !erased&&s?.type==='text-block'?s:null}
   function clear(){selection=null;drag=null;Shapes.setPreview(null);frame.hidden=true;inspector.hidden=true}
-  function update(){const s=current();if(!s){clear();return}frame.hidden=false;inspector.hidden=false;Object.assign(frame.style,{left:s.x/W*100+'%',top:s.y/H*100+'%',width:s.width/W*100+'%',height:TextBlocks.layout(s).height/H*100+'%'})}
+  function update(){const s=current();if(!s){clear();return}frame.hidden=false;inspector.hidden=false;const b=window.SceneObjects?SceneObjects.bounds(s):{x:s.x,y:s.y,width:s.width,height:TextBlocks.layout(s).height};$('deleteText').disabled=$('editText').disabled=!!s.locked;$('resizeText').hidden=!!s.locked;Object.assign(frame.style,{left:b.x/W*100+'%',top:b.y/H*100+'%',width:b.width/W*100+'%',height:b.height/H*100+'%'})}
   function cancel(){if(drag){drag=null;Shapes.setPreview(null);paint()}update()}
-  function commit(value){selection.items.push({type:'text-edit',target:selection.index,value});redo=[];Shapes.setPreview(null);drag=null;render()}
+  function commit(value){if(current()?.locked&&value?.locked!==false)return;selection.items.push({type:'text-edit',target:selection.index,value});redo=[];Shapes.setPreview(null);drag=null;render()}
   function open(s,point){draft={book,page,items:book.pages[page],index:s?selection.index:null,point};$('textContent').value=s?.text||'';$('textFont').value=s?.font||'Arial';$('textSize').value=s?.size||24;$('textColor').value=s?.color||preferences.color;$('textAlign').value=s?.align||'left';$('textBold').checked=!!s?.bold;$('textItalic').checked=!!s?.italic;$('textUnderline').checked=!!s?.underline;$('textBackgroundEnabled').checked=!!s?.background;$('textBackground').value=s?.background||'#fff5c9';preview();dialog.showModal();$('textContent').focus()}
   button.onclick=()=>{finish();Editor.choose('textBlock');$('extraTools').open=false};
   $('closeText').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{draft=null});
@@ -22,17 +23,17 @@ const TextTools = (() => {
   $('textForm').onsubmit=e=>{
     e.preventDefault();if(!draft||draft.book!==book||draft.page!==page||draft.items!==book.pages[page]){dialog.close();return}
     const old=draft.index===null?null:current();if(draft.index!==null&&!old){dialog.close();return}
-    const s={type:'text-block',x:old?.x??draft.point.x,y:old?.y??draft.point.y,width:old?.width??Math.max(40,Math.min(320,W-draft.point.x)),text:$('textContent').value,font:$('textFont').value,size:Number($('textSize').value),color:$('textColor').value,align:$('textAlign').value,bold:$('textBold').checked,italic:$('textItalic').checked,underline:$('textUnderline').checked,background:$('textBackgroundEnabled').checked?$('textBackground').value:null};
+    const s={...old,type:'text-block',x:old?.x??draft.point.x,y:old?.y??draft.point.y,width:old?.width??Math.max(40,Math.min(320,W-draft.point.x)),text:$('textContent').value,font:$('textFont').value,size:Number($('textSize').value),color:$('textColor').value,align:$('textAlign').value,bold:$('textBold').checked,italic:$('textItalic').checked,underline:$('textUnderline').checked,background:$('textBackgroundEnabled').checked?$('textBackground').value:null};
     if(!TextBlocks.valid(s)||!s.text.trim()){$('textContent').focus();return}
     if(old)commit(s);else{const items=book.pages[page];items.push(s);selection={book,page,items,index:items.length-1};redo=[];render()}
     dialog.close();update();if(!old)document.dispatchEvent(new Event("notepad:text-added"));
   };
-  function start(e,mode){const s=current();if(!s)return;try{canvas.setPointerCapture(e.pointerId)}catch{return}drag={id:e.pointerId,type:e.pointerType,time:e.timeStamp,point:pos(e),original:structuredClone(s),mode};e.preventDefault();e.stopImmediatePropagation()}
+  function start(e,mode){const s=current();if(!s||s.locked)return;try{canvas.setPointerCapture(e.pointerId)}catch{return}drag={id:e.pointerId,type:e.pointerType,time:e.timeStamp,point:pos(e),original:structuredClone(s),mode};e.preventDefault();e.stopImmediatePropagation()}
   canvas.addEventListener('pointerdown',e=>{
     if(tool!=='textBlock')return;e.preventDefault();e.stopImmediatePropagation();
     if(drag||!validPosition(e)||e.button>0||($('inputMode').value!=='any'&&e.pointerType!=='pen'))return;
     const p=pos(e),items=book.pages[page],resolved=Shapes.resolve(items,false),hidden=new Set(items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets));selection=null;
-    for(let i=resolved.length-1;i>=0;i--){const s=resolved[i];if(s?.type==='text-block'&&!hidden.has(i)&&p.x>=s.x&&p.x<=s.x+s.width&&p.y>=s.y&&p.y<=s.y+TextBlocks.layout(s).height){selection={book,page,items,index:i};break}}
+    for(let i=resolved.length-1;i>=0;i--){const s=resolved[i];if(s?.type==='text-block'&&!hidden.has(i)&&hit(s,p)){selection={book,page,items,index:i};break}}
     update();if(selection)start(e,'move');else pending={id:e.pointerId,type:e.pointerType,point:p,clientX:e.clientX,clientY:e.clientY};
   },true);
   let pending=null;
@@ -40,7 +41,8 @@ const TextTools = (() => {
   function move(e){
     if(!drag||e.pointerId!==drag.id||e.pointerType!==drag.type||!validPosition(e)||e.timeStamp<drag.time)return;
     drag.time=e.timeStamp;const p=pos(e),s=drag.original,dx=p.x-drag.point.x,dy=p.y-drag.point.y;
-    const value=drag.mode==='resize'?{...s,width:Math.max(40,Math.min(Math.max(40,W-s.x),s.width+dx))}:{...s,x:Math.max(0,Math.min(W-s.width,s.x+dx)),y:Math.max(0,Math.min(H-s.size*1.35,s.y+dy))};
+    const angle=(s.rotation||0)*Math.PI/180,localDx=dx*Math.cos(angle)+dy*Paper.geometry(book).outputHeight/H*Math.sin(angle);
+    const value=drag.mode==='resize'?{...s,width:Math.max(40,Math.min(book.canvasDocument||s.rotation?794:Math.max(40,W-s.x),s.width+localDx))}:book.canvasDocument?{...s,x:book.canvasDocument.format==='continuous'?Math.max(0,Math.min(W-s.width,s.x+dx)):s.x+dx,y:book.canvasDocument.format==='continuous'?Math.max(-(book.canvasCamera?.y||0),s.y+dy):s.y+dy}:{...s,x:Math.max(0,Math.min(W-s.width,s.x+dx)),y:Math.max(0,Math.min(H-s.size*1.35,s.y+dy))};
     Shapes.setPreview({items:selection.items,index:selection.index,value});paint();update();e.preventDefault();e.stopImmediatePropagation();
   }
   canvas.addEventListener('pointermove',e=>{if(pending?.id===e.pointerId&&Math.hypot(e.clientX-pending.clientX,e.clientY-pending.clientY)>12)pending=null;move(e)},true);

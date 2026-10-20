@@ -198,7 +198,8 @@ const SpatialDocument = (() => {
         snapshot = copy(meta);
       pending = (async () => {
         const entries = [],
-          touched = new Map();
+          touched = new Map(),groups=new Map();
+        async function group(id){if(!groups.has(id))groups.set(id,new Set(await store.read(root+'group/'+encodeURIComponent(id))||[]));return groups.get(id)}
         async function region(key) {
           if (!touched.has(key))
             touched.set(
@@ -209,6 +210,8 @@ const SpatialDocument = (() => {
         }
         for (const [id, entry] of edits) {
           const previous = await store.read(root + "object/" + id);
+          if(previous?.value.groupId)(await group(previous.value.groupId)).delete(id);
+          if(entry?.value.groupId)(await group(entry.value.groupId)).add(id);
           for (const key of previous ? tiles(previous.bounds) : [])
             (await region(key)).delete(id);
           for (const key of entry ? tiles(entry.bounds) : [])
@@ -220,6 +223,7 @@ const SpatialDocument = (() => {
           if (ids.size) snapshot.occupied[key] = ids.size;
           else delete snapshot.occupied[key];
         }
+        for(const [id,values]of groups)entries.push([root+'group/'+encodeURIComponent(id),[...values]]);
         for (const [seq, operation] of operations)
           entries.push([root + "history/" + seq, operation]);
         snapshot.revision = meta.revision + 1;
@@ -249,6 +253,8 @@ const SpatialDocument = (() => {
     }
     return {
       query,
+      reindex(entry){rectangle(entry.bounds);tiles(entry.bounds);staged.set(entry.id,copy(entry));objects.values.delete(entry.id);regions.clear();dirty()},
+      async group(id){const ids=new Set(await store.read(root+'group/'+encodeURIComponent(id))||[]);for(const [key,entry]of staged)if(entry?.value.groupId===id)ids.add(key);const values=[];for(const key of ids){const value=await readObject(key);if(value?.value.groupId===id)values.push(copy(value))}return values.sort((a,b)=>a.order-b.order)},
       readObject,
       commit,
       save,

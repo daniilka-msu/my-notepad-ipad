@@ -200,3 +200,8 @@ test("edits completed during a pending atomic write are saved in a later revisio
   assert.equal((await reopen.readObject("a")).bounds.x, 100);
   assert.equal(reopen.metadata.cursor, 2);
 });
+test('group membership spans unloaded regions and survives undo and reopening',async()=>{
+ const store=memory(),doc=await model.open('group','infinite',store),a=entry('a',0,0),b=entry('b',0,5000);a.value.groupId=b.value.groupId='lesson';doc.commit([{id:'a',before:null,after:a},{id:'b',before:null,after:b}]);await doc.save();
+ const reopen=await model.open('group','infinite',store);assert.equal((await reopen.query({x:0,y:0,width:794,height:1123})).length,1);assert.equal((await reopen.group('lesson')).length,2);
+ const changed=structuredClone(b);delete changed.value.groupId;reopen.commit([{id:'b',before:b,after:changed}]);assert.equal((await reopen.group('lesson')).length,1);await reopen.save();await reopen.undo();await reopen.save();assert.equal((await reopen.group('lesson')).length,2);
+});

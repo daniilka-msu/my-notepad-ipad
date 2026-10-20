@@ -55,7 +55,7 @@ syncCorrection();
 canvas.width=W*2;canvas.height=H*2;ctx.scale(2,2);
 let storageReady=false,storageFailed=false,unsaved=false;
 const saving=Autosave.create({
-  write:()=>NotepadStore.write(()=>data,[],()=>!drawing),active:()=>!!drawing,ready:()=>storageReady,
+  write:()=>NotepadStore.write(()=>data,[],()=>!activeInkInput()),active:activeInkInput,ready:()=>storageReady,
   state:(value,dirty)=>{
     const spatial=window.CanvasEditor?.session;
     if(spatial?.model.dirty){dirty=true;if(value==='saved')value=spatial.saveState==='error'?'error':'dirty'}
@@ -90,12 +90,13 @@ function renderBooks(){
 const inkLayer=document.createElement('canvas');inkLayer.width=canvas.width;inkLayer.height=canvas.height;
 const ink=inkLayer.getContext('2d');
 function stroke(s,target=ctx,surface=null){
+  if(s.type&&window.SceneObjects&&((s.rotation&&s.type!=='image-object')||s.opacity!==undefined))return SceneObjects.render(target,s,()=>stroke({...s,rotation:s.type==='image-object'?s.rotation:undefined,opacity:undefined},target,surface));
   const ctx=target,layer=surface?.scratch||inkLayer,ink=layer.getContext('2d'),view=surface?.view||{x:0,y:0,width:W,height:H},sx=surface?.sx||2,sy=surface?.sy||2;
   if(StudyObjects.types.includes(s.type)){StudyObjects.render(ctx,s);return}
   if(s.type==='chart-object'){Charts.render(ctx,s);return}
   if(s.type==='image-object'){ImageObjects.render(ctx,s,book);return}
   if(s.type==='text-block'){TextBlocks.render(ctx,s);return}
-  if(s.type==='text'){ctx.save();ctx.fillStyle=s.color||'#222';ctx.font='18px -apple-system, sans-serif';for(const [i,line] of s.text.split('\n').entries())ctx.fillText(line,36,50+i*26,W-72);ctx.restore();return}
+  if(s.type==='text'){ctx.save();ctx.fillStyle=s.color||'#222';ctx.font='18px -apple-system, sans-serif';for(const [i,line] of s.text.split('\n').entries())ctx.fillText(line,s.x??36,(s.y??50)+i*26,s.width??W-72);ctx.restore();return}
   if(!s.points?.length)return;
   if(s.shapeVersion===1){Shapes.render(ctx,s,book);return}
   ink.setTransform(sx,0,0,sy,-view.x*sx,-view.y*sy);ink.clearRect(view.x,view.y,view.width,view.height);ink.fillStyle=s.tool==='eraser'?'#000':s.color;ink.strokeStyle=ink.fillStyle;ink.lineCap='round';ink.lineJoin='round';
@@ -135,7 +136,7 @@ function erasedTargets(eraser,items){
   const bounds=points=>points.reduce((r,p)=>({left:Math.min(r.left,p.x),right:Math.max(r.right,p.x),top:Math.min(r.top,p.y),bottom:Math.max(r.bottom,p.y)}),{left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity});
   const area=bounds(path);
   return Shapes.resolve(items,false).flatMap((item,index)=>{
-  if(!item?.points||item.type||item.shape||!['pen','marker'].includes(item.tool))return [];
+  if(!item?.points||item.type||item.shape||item.locked||!['pen','marker'].includes(item.tool))return [];
   const points=item.points.map(physical),box=bounds(points),radius=(eraser.width+item.width)/2;
   if(box.left>area.right+radius||box.right<area.left-radius||box.top>area.bottom+radius||box.bottom<area.top-radius)return [];
   const hit=path.some((p,j)=>points.some((b,i)=>segmentDistance(path[Math.max(0,j-1)],p,points[Math.max(0,i-1)],b)<=radius));
@@ -181,6 +182,7 @@ function validPosition(e){
   const r=canvas.getBoundingClientRect();
   return Number.isFinite(e.clientX)&&Number.isFinite(e.clientY)&&r.width>0&&r.height>0;
 }
+function activeInkInput(){return !!drawing||!!window.SmartLasso?.active||!!window.AreaCapture?.active}
 let activePointer=null,activeType=null,frame=null,strokePage=null,lastSample=null,captureTarget=canvas;
 function appendPoint(e,endpoint=false){
   if(!drawing||e.pointerId!==activePointer||e.pointerType!==activeType||!validPosition(e)||!Number.isFinite(e.timeStamp)||e.timeStamp<lastSample.time)return;
@@ -279,7 +281,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){finish();f
 window.addEventListener('pagehide',()=>{finish();flushChanges(true)});
 window.addEventListener('blur',finish);
 document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{tool=b.dataset.tool;document.querySelectorAll('.tool').forEach(x=>x.classList.toggle('active',x===b))});
-$('undo').onclick=()=>{const s=book.pages[page].pop();if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s)book.pages[page].push(s);render()};
+$('undo').onclick=()=>{const s=book.pages[page].pop();if(s?.type==='selection-batch')redo.push({type:'history-batch',items:[...book.pages[page].splice(-s.count,s.count),s]});else if(s)redo.push(s);render()};$('redo').onclick=()=>{const s=redo.pop();if(s?.type==='history-batch')book.pages[page].push(...s.items);else if(s)book.pages[page].push(s);render()};
 $('clear').onclick=()=>{if(confirm('Очистить текущую страницу?')){book.pages[page].push({tool:'stroke-eraser',color:'#000000',width:1,points:[],targets:book.pages[page].map((_,i)=>i)});redo=[];render()}};
 $('newBook').onclick=()=>{const name=prompt('Название тетради:','Новая тетрадь');if(!name?.trim())return;const b={id:uid(),name:name.trim(),paper:'grid',gridMm:5,pages:[[]]};data.books.push(b);data.selected=b.id;page=0;redo=[];render()};
 $('addPage').onclick=()=>{book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;redo=[];render()};$('prev').onclick=()=>{if(page>0){page--;redo=[];render()}};$('next').onclick=()=>{if(page<book.pages.length-1){page++;redo=[];render()}};$('paper').onchange=e=>{book.paper=e.target.value;render()};

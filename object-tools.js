@@ -27,5 +27,5 @@ const ObjectTools = (() => {
   for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(drag?.id===e.pointerId){cancel();e.stopImmediatePropagation()}},true);
   document.addEventListener('notepad:render',update);document.addEventListener('notepad:gesture-start',cancel);document.addEventListener('notepad:tool',()=>{if(tool!=='pageObject')clear()});window.addEventListener('blur',cancel);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancel()});
   document.addEventListener('keydown',e=>{if(document.body.classList.contains('home-view')||document.querySelector('dialog[open]')||document.body.classList.contains('library-open')||e.target.closest?.('input,textarea,select'))return;if(e.key==='Escape')clear();if((e.key==='Delete'||e.key==='Backspace')&&current()){e.preventDefault();$('deleteObject').click()}});
-  return {register(type,definition){types.set(type,definition)},current,clear,commit,add,select};
+  return {register(type,definition){types.set(type,{...definition,bounds(s){return s.rotation&&window.SceneObjects?SceneObjects.bounds(s):definition.bounds(s)}})},current,clear,commit,add,select};
 })();

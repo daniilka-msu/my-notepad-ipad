@@ -46,7 +46,7 @@
     CanvasEditor.capture();
     if (
       CanvasEditor.session &&
-      !(await CanvasEditor.session.model.save(() => !!drawing))
+      !(await CanvasEditor.session.model.save(activeInkInput))
     )
       throw new Error("Завершите штрих перед резервным копированием");
     const result = await create(
@@ -101,7 +101,7 @@
       seen.add(id);
       const keys = new Set(),
         objects = new Map(),
-        tileEntries = new Map();
+        tileEntries = new Map(), groupEntries = new Map();
       let meta;
       for (const [key, value] of values) {
         if (
@@ -163,9 +163,16 @@
                 if (entry.id !== change.id)
                   throw new Error("Повреждена операция холста");
               }
+        } else if(key.startsWith('group/')){
+          if(!Array.isArray(value)||value.some(id=>typeof id!=='string')||new Set(value).size!==value.length)throw new Error('Повреждена группа объектов');
+          groupEntries.set(key.slice(6),value);
         } else throw new Error("Неизвестная запись холста");
       }
       if (!meta) throw new Error("Нет метаданных холста");
+      const expectedGroups = new Map();
+      for(const entry of objects.values())if(entry.value.groupId){const key=encodeURIComponent(entry.value.groupId);if(!expectedGroups.has(key))expectedGroups.set(key,new Set());expectedGroups.get(key).add(entry.id)}
+      for(const [key,ids]of groupEntries){const expected=expectedGroups.get(key)||new Set();if(ids.length!==expected.size||ids.some(id=>!expected.has(id)))throw new Error('Группа не соответствует объектам')}
+      for(const key of expectedGroups.keys())if(!groupEntries.has(key))throw new Error('В копии отсутствует индекс группы');
       const expected = new Map();
       for (const entry of objects.values())
         for (const tile of SpatialDocument.tiles(entry.bounds)) {

@@ -16,7 +16,7 @@ window.CanvasExport = (() => {
       throw new Error("Откройте холст перед экспортом");
     finish();
     CanvasEditor.capture();
-    if (!(await s.model.save(() => !!drawing)))
+    if (!(await s.model.save(activeInkInput)))
       throw new Error("Завершите штрих");
     const entries = await s.model.query(area),
       values = entries.map((v) => v.value);
@@ -92,8 +92,10 @@ window.CanvasExport = (() => {
     const oldBook = book;
     try {
       book = notebook;
-      for (const entry of entries)
-        stroke(entry.value, ink, { scratch, view: area, sx, sy });
+      for (const entry of entries){
+        const value=entry.value.type==='chart-object'&&entry.value.pointSpace!=='math'&&entry.value.points?{...entry.value,points:entry.value.points.map(point=>({...point,x:point.x-s.camera.x,y:point.y-s.camera.y}))}:entry.value;
+        stroke(value, ink, { scratch, view: area, sx, sy });
+      }
     } finally {
       book = oldBook;
     }
@@ -153,7 +155,7 @@ window.CanvasExport = (() => {
     win.document.title = "My Notepad — экспорт холста";
     win.document.body.textContent = "Подготовка страниц…";
     try {
-      await s.model.save(() => !!drawing);
+      await s.model.save(activeInkInput);
       const full = occupied();
       const continuous = notebook.canvasDocument.format === "continuous";
       const count = continuous
@@ -194,7 +196,7 @@ window.CanvasExport = (() => {
     try {
       finish();
       CanvasEditor.capture();
-      await CanvasEditor.session.model.save(() => !!drawing);
+      await CanvasEditor.session.model.save(activeInkInput);
       const image = await compose(occupied());
       image.toBlob((blob) => {
         if (!blob) return;

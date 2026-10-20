@@ -13,10 +13,10 @@ const ShapeTools = (() => {
   function updateLabels(){$('shapeWidthValue').textContent=$('shapeWidth').value+' px';$('shapeOpacityValue').textContent=$('shapeOpacity').value+'%';$('shapeFill').disabled=!$('shapeFillEnabled').checked||!Shapes.closed.has(select.value)}
   for(const id of ['shapeWidth','shapeOpacity','shapeFillEnabled','shapeKind'])$(id).addEventListener('input',updateLabels);
   function current(){if(!selection||selection.book!==book||selection.page!==page||selection.items!==book.pages[page])return null;const hidden=new Set(selection.items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets));return hidden.has(selection.index)?null:Shapes.resolve(selection.items)[selection.index]}
-  function update(){const shape=current();if(!shape){clear();return}const b=Shapes.bounds(shape);frame.hidden=false;frame.style.left=b.x/W*100+'%';frame.style.top=b.y/H*100+'%';frame.style.width=Math.max(1,b.right-b.x)/W*100+'%';frame.style.height=Math.max(1,b.bottom-b.y)/H*100+'%';inspector.hidden=false;$('selectedShapeName').textContent=labels[shape.shape]||'Фигура'}
+  function update(){const shape=current();if(!shape){clear();return}const b=Shapes.bounds(shape);frame.hidden=false;frame.style.left=b.x/W*100+'%';frame.style.top=b.y/H*100+'%';frame.style.width=Math.max(1,b.right-b.x)/W*100+'%';frame.style.height=Math.max(1,b.bottom-b.y)/H*100+'%';inspector.hidden=false;$('selectedShapeName').textContent=labels[shape.shape]||'Фигура';$('editShape').disabled=$('deleteShape').disabled=!!shape.locked;$('resizeShape').hidden=!!shape.locked}
   function cancel(){if(drag){Shapes.setPreview(null);drag=null;paint()}update()}
   function clear(){Shapes.setPreview(null);drag=null;selection=null;frame.hidden=true;inspector.hidden=true}
-  function commit(value){if(!selection)return;selection.items.push({type:'shape-edit',target:selection.index,value});redo=[];Shapes.setPreview(null);drag=null;render();update()}
+  function commit(value){if(!selection||current()?.locked&&value?.locked!==false)return;selection.items.push({type:'shape-edit',target:selection.index,value});redo=[];Shapes.setPreview(null);drag=null;render();update()}
   function open(edit){editing=edit;values(edit?current():null);$('applyShape').textContent=edit?'Применить к фигуре':'Рисовать фигуру';$('shapeTitle').textContent=edit?'Свойства фигуры':'Фигуры';dialog.showModal()}
   $('drawShape').onclick=()=>{finish();$('extraTools').open=false;open(false)};$('closeShapes').onclick=()=>dialog.close();$('editShape').onclick=()=>open(true);$('deleteShape').onclick=()=>{commit(null);clear()};$('deselectShape').onclick=clear;
   $('shapeForm').onsubmit=e=>{
@@ -26,7 +26,7 @@ const ShapeTools = (() => {
     }else{preferences.shapeKind=style.shape;preferences.shapeColor=style.color;preferences.shapeWidth=style.width;preferences.shapeOpacity=Number($('shapeOpacity').value);preferences.shapeFilled=!!style.fill;preferences.shapeFill=$('shapeFill').value;Editor.persist();Editor.choose('shape')}
     dialog.close();
   };
-  function start(e,mode){const shape=current();if(!shape)return;try{canvas.setPointerCapture(e.pointerId)}catch{return}drag={id:e.pointerId,type:e.pointerType,time:e.timeStamp,mode,point:pos(e),shape:structuredClone(shape)};e.preventDefault();e.stopImmediatePropagation()}
+  function start(e,mode){const shape=current();if(!shape||shape.locked)return;try{canvas.setPointerCapture(e.pointerId)}catch{return}drag={id:e.pointerId,type:e.pointerType,time:e.timeStamp,mode,point:pos(e),shape:structuredClone(shape)};e.preventDefault();e.stopImmediatePropagation()}
   canvas.addEventListener('pointerdown',e=>{
     if(tool!=='selectShape')return;
     e.preventDefault();e.stopImmediatePropagation();if(drag||!validPosition(e)||e.button>0||($('inputMode').value!=='any'&&e.pointerType!=='pen'))return;

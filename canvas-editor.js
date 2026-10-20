@@ -54,7 +54,8 @@ window.CanvasEditor = (() => {
     return value;
   };
   function bounds(s) {
-    if (s.points?.length) {
+    if(window.SceneObjects)return SceneObjects.bounds(s);
+    if (!s.type&&s.points?.length) {
       const box = s.points.reduce(
           (r, p) => ({
             x: Math.min(r.x, p.x),
@@ -88,20 +89,20 @@ window.CanvasEditor = (() => {
       result.x ??= 36;
       result.y ??= 50;
     }
-    if (result.points)
+    if (result.points&&(!result.type||result.type==='chart-object'&&result.pointSpace!=='math'))
       result.points = result.points.map((p) => ({
         ...p,
         x: p.x + x,
         y: p.y + y,
       }));
-    if (result.rawPoints)
+    if (!result.type&&result.rawPoints)
       result.rawPoints = result.rawPoints.map((p) => ({
         ...p,
         x: p.x + x,
         y: p.y + y,
       }));
     for (const key of ["shapeStart", "shapeEnd"])
-      if (result[key]) {
+      if (!result.type&&result[key]) {
         result[key].x += x;
         result[key].y += y;
       }
@@ -163,6 +164,11 @@ window.CanvasEditor = (() => {
           );
         action.canvasApplied = true;
       }
+    for(const action of items)if(action.type==='selection-edit'&&action.placement&&!action.canvasApplied){
+      const targets=action.placement==='back'?[...action.targets].reverse():action.targets;
+      for(const target of targets){const id=items[target]?.canvasObjectId;if(id)orders.set(id,(action.placement==='back'?-1:1)*s.model.nextOrder())}
+      action.canvasApplied=true;
+    }
     for (const [index, value] of Shapes.ordered(items, false)) {
       if (!value || hidden.has(index) || value.tool === "stroke-eraser")
         continue;
@@ -185,6 +191,7 @@ window.CanvasEditor = (() => {
             }
           : value;
       const previous = s.visible.get(id);
+      if(value.type==='chart-object'&&(!previous||items.some(action=>action.type==='object-edit'&&action.value===value)))value.pointSpace='math';
       const cached = s.localCache.get(value),
         reuse =
           cached &&
@@ -260,6 +267,11 @@ window.CanvasEditor = (() => {
     TextTools.clear();
     ObjectTools.clear();
     s.camera = camera;
+    items=items.map(entry=>{
+      if(entry.value.type!=='chart-object')return entry;
+      const box=bounds(entry.value);if(s.book.canvasDocument.format==='continuous'){const right=Math.min(794,box.x+box.width),bottom=Math.max(0,box.y+box.height);box.x=Math.max(0,box.x);box.y=Math.max(0,box.y);box.width=right-box.x;box.height=bottom-box.y}
+      if(JSON.stringify(box)!==JSON.stringify(entry.bounds)){const next={...entry,bounds:box};s.model.reindex(next);return next}return entry;
+    });
     s.visible = new Map(items.map((v) => [v.id, v]));
     s.book.canvasCamera = { ...s.camera };
     ImageObjects.retain(
@@ -316,9 +328,17 @@ window.CanvasEditor = (() => {
       SpatialDocument.intersects(value.bounds, visible),
     );
   }
+  async function include(entries){
+    const s=session;if(!s||s.book.id!==book.id)return false;
+    const incoming=entries.filter(value=>!s.visible.has(value.id));
+    await Promise.all([ImageObjects.prepare(incoming.map(v=>v.value)),StudyObjects.prepare(incoming.map(v=>v.value))]);
+    if(session!==s||activeInkInput())return false;
+    for(const entry of incoming){const local={...translate(entry.value,-s.camera.x,-s.camera.y),canvasObjectId:entry.id};s.book.pages[0].push(local);s.visible.set(entry.id,entry);s.localCache.set(local,{x:s.camera.x,y:s.camera.y,strokeId:local.strokeId,lectureActionId:local.lectureActionId,value:entry.value,bounds:entry.bounds})}
+    return true;
+  }
   async function move(camera) {
     const s = session;
-    if (!s || s.book.id !== book.id || drawing || loading) return false;
+    if (!s || s.book.id !== book.id || activeInkInput() || window.AreaCapture?.busy || loading) return false;
     finish();
     capture();
     const generation = inputGeneration;
@@ -340,7 +360,7 @@ window.CanvasEditor = (() => {
     }
     loading = true;
     try {
-      if (s.model.stats.dirtyObjects && !(await s.model.save(() => !!drawing)))
+      if (s.model.stats.dirtyObjects && !(await s.model.save(activeInkInput)))
         return false;
       const items = await queryWindow(s, camera);
       if (drawing || session !== s || inputGeneration !== generation)
@@ -381,7 +401,7 @@ window.CanvasEditor = (() => {
     $("toolbar").inert = true;
     try {
       if (session) {
-        if (!(await session.model.save(() => !!drawing))) {
+        if (!(await session.model.save(activeInkInput))) {
           status("Сначала завершите штрих");
           return;
         }
@@ -412,8 +432,8 @@ window.CanvasEditor = (() => {
       };
       session = current;
       current.autosave = Autosave.create({
-        write: () => model.save(() => !!drawing),
-        active: () => !!drawing,
+        write: () => model.save(activeInkInput),
+        active: activeInkInput,
         state(value, dirty) {
           if (session !== current) return;
           current.saveState = value;
@@ -630,6 +650,7 @@ window.CanvasEditor = (() => {
       event.preventDefault();
       event.stopImmediatePropagation();
       PageView.resetGesture();
+      document.dispatchEvent(new Event('notepad:gesture-start'));
       const point = center() || { x: event.clientX, y: event.clientY, d: 0 };
       gesture = {
         id: event.pointerId,
@@ -701,7 +722,7 @@ window.CanvasEditor = (() => {
     if (notebook.id !== session?.book.id)
       throw new Error("Откройте холст перед экспортом");
     capture();
-    await session.model.save(() => !!drawing);
+    await session.model.save(activeInkInput);
     return originalCompose(notebook, index);
   };
   document.addEventListener("visibilitychange", () => {
@@ -717,7 +738,7 @@ window.CanvasEditor = (() => {
   async function copyDocument(source, target) {
     if (source === session?.book.id) {
       capture();
-      await session.model.save(() => !!drawing);
+      await session.model.save(activeInkInput);
     }
     const root = SpatialDocument.prefix(source),
       next = SpatialDocument.prefix(target),
@@ -735,6 +756,7 @@ window.CanvasEditor = (() => {
     bounds,
     translate,
     copyDocument,
+    include,
     get session() {
       return session;
     },

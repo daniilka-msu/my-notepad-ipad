@@ -28,14 +28,20 @@ const Shapes = (() => {
     return result.map(p=>({x:p.x,y:p.y/scale,p:.5}));
   }
   function resolve(items, includePreview=true) {
-    const result=items.map(s=>['shape-edit','text-edit','object-edit','object-order'].includes(s.type)?null:s);
-    for(const entry of items)if(['shape-edit','text-edit','object-edit'].includes(entry.type))result[entry.target]=entry.value;
-    if(includePreview&&preview?.items===items)result[preview.index]=preview.value;
+    const result=items.map(s=>['shape-edit','text-edit','object-edit','object-order','selection-edit','selection-batch'].includes(s.type)?null:s);
+    for(const entry of items){
+      if(['shape-edit','text-edit','object-edit'].includes(entry.type))result[entry.target]=entry.value;
+      if(entry.type==='selection-edit')for(const change of entry.changes)result[change.target]=change.value;
+    }
+    if(includePreview&&preview?.items===items){if(preview.changes)for(const change of preview.changes)result[change.target]=change.value;else result[preview.index]=preview.value}
     return result;
   }
   function ordered(items,includePreview=true) {
     const result=resolve(items,includePreview).map((s,i)=>[i,s]);
-    for(const entry of items)if(entry.type==='object-order'){const index=result.findIndex(([i])=>i===entry.target);if(index<0)continue;const [value]=result.splice(index,1);if(entry.placement==='front')result.push(value);else result.unshift(value)}
+    for(const entry of items){
+      if(entry.type==='object-order'){const index=result.findIndex(([i])=>i===entry.target);if(index<0)continue;const [value]=result.splice(index,1);if(entry.placement==='front')result.push(value);else result.unshift(value)}
+      if(entry.type==='selection-edit'&&entry.placement){const targets=new Set(entry.targets),moving=result.filter(([index])=>targets.has(index));for(let i=result.length-1;i>=0;i--)if(targets.has(result[i][0]))result.splice(i,1);if(entry.placement==='front')result.push(...moving);else result.unshift(...moving)}
+    }
     return result;
   }
   function render(context, shape, notebook = {}) {

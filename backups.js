@@ -1,4 +1,4 @@
-﻿/* Backups contain user notes and document backgrounds, never service credentials. */
+/* Backups contain user notes and document backgrounds, never service credentials. */
 const Backups=(()=>{
   const isObject=value=>value&&typeof value==='object'&&!Array.isArray(value);
   const finite=value=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<1e8;
@@ -22,6 +22,17 @@ const Backups=(()=>{
       for(const bg of b.backgrounds||[])if(bg!==null&&(!isObject(bg)||typeof bg.id!=='string'||!finite(bg.width)||bg.width<=0||!finite(bg.height)||bg.height<=0||(bg.text!==undefined&&typeof bg.text!=='string')))throw new Error('Повреждён фон страницы');
       for(const items of b.pages){if(!Array.isArray(items))throw new Error('Повреждена страница');for(const [index,s]of items.entries()){
         if(!isObject(s))throw new Error('Повреждён штрих');
+        if(s.type==='selection-batch'){if(!Number.isInteger(s.count)||s.count<1||s.count>index||s.count>20000||items.slice(index-s.count,index).some(v=>['shape-edit','text-edit','object-edit','object-order','selection-edit','selection-batch'].includes(v.type)))throw new Error('Повреждена вставка выделения');continue}
+        if((s.groupId!==undefined&&(typeof s.groupId!=='string'||s.groupId.length>160))||(s.locked!==undefined&&typeof s.locked!=='boolean')||(s.rotation!==undefined&&![0,90,180,270].includes(s.rotation)))throw new Error('Повреждены свойства объекта');
+        if(s.type==='selection-edit'){
+          if(!Array.isArray(s.changes)||s.changes.length>20000||new Set(s.changes.map(c=>c?.target)).size!==s.changes.length)throw new Error('Повреждено групповое действие');
+          for(const change of s.changes){
+            if(!isObject(change)||!Number.isInteger(change.target)||change.target<0||change.target>=index||!items[change.target]||['shape-edit','text-edit','object-edit','object-order','selection-edit','selection-batch'].includes(items[change.target].type))throw new Error('Неверная ссылка группового действия');
+            if(change.value!==null){if(!isObject(change.value)||['shape-edit','text-edit','object-edit','object-order','selection-edit','selection-batch'].includes(change.value.type))throw new Error('Поврежден объект выделения');validateLibrary({books:[{id:'selection',name:'Выделение',paper:'blank',pages:[[change.value]]}]})}
+          }
+          if(s.placement!==undefined&&(!['front','back'].includes(s.placement)||!Array.isArray(s.targets)||s.targets.some(target=>!Number.isInteger(target)||target<0||target>=index)))throw new Error('Поврежден порядок выделения');
+          continue;
+        }
         if(s.type==='shape-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||!items[s.target].shape||(s.value!==null&&!validShape(s.value)))throw new Error('Повреждено изменение фигуры');continue}
         if(s.type==='text-block'){if(!TextBlocks.valid(s))throw new Error('Повреждён текстовый блок');continue}
         if(s.type==='text-edit'){if(!Number.isInteger(s.target)||s.target<0||s.target>=index||items[s.target].type!=='text-block'||(s.value!==null&&!TextBlocks.valid(s.value)))throw new Error('Повреждено изменение текста');continue}

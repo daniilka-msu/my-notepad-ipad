@@ -400,6 +400,17 @@ try {
       await page.evaluate(async () => {
         await save();
       });
+      await page.locator('#extraTools summary').click();
+      await page.locator('#insertGraph').click();
+      await page.locator('#graphPointsDetails').evaluate(node => node.open = true);
+      await page.locator('#chartAddPoint').click();
+      const pointInputs = page.locator('#chartPoints tbody tr').first().locator('input');
+      await pointInputs.nth(0).fill('A');
+      await pointInputs.nth(1).fill('2');
+      await pointInputs.nth(2).fill('3');
+      await page.locator('#applyChart').click();
+      await page.evaluate(async () => { await save(); });
+      await check(() => book.pages[0].some(v => v.type === 'chart-object' && v.pointSpace === 'math' && v.points?.some(p => p.x === 2 && p.y === 3)), 'function points preserve mathematical coordinates at distant camera');
       const mixed = await page.evaluate(async () =>
         (await Documents.compose(book, 0)).toDataURL(),
       );
@@ -421,6 +432,7 @@ try {
         engine +
           " preserves mixed-object rendering and export after region reload",
       );
+      await check(() => book.pages[0].some(v => v.type === 'chart-object' && v.points?.some(p => p.x === 2 && p.y === 3)), 'function point values survive unloading and reopening');
       await check(async () => {
         await Backups.parse(
           JSON.stringify(await Backups.create(data, preferences)),
