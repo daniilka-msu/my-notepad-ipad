@@ -198,8 +198,19 @@ const SpatialDocument = (() => {
         snapshot = copy(meta);
       pending = (async () => {
         const entries = [],
-          touched = new Map(),groups=new Map();
-        async function group(id){if(!groups.has(id))groups.set(id,new Set(await store.read(root+'group/'+encodeURIComponent(id))||[]));return groups.get(id)}
+          touched = new Map(),
+          groups = new Map();
+        async function group(id) {
+          if (!groups.has(id))
+            groups.set(
+              id,
+              new Set(
+                (await store.read(root + "group/" + encodeURIComponent(id))) ||
+                  [],
+              ),
+            );
+          return groups.get(id);
+        }
         async function region(key) {
           if (!touched.has(key))
             touched.set(
@@ -210,8 +221,9 @@ const SpatialDocument = (() => {
         }
         for (const [id, entry] of edits) {
           const previous = await store.read(root + "object/" + id);
-          if(previous?.value.groupId)(await group(previous.value.groupId)).delete(id);
-          if(entry?.value.groupId)(await group(entry.value.groupId)).add(id);
+          if (previous?.value.groupId)
+            (await group(previous.value.groupId)).delete(id);
+          if (entry?.value.groupId) (await group(entry.value.groupId)).add(id);
           for (const key of previous ? tiles(previous.bounds) : [])
             (await region(key)).delete(id);
           for (const key of entry ? tiles(entry.bounds) : [])
@@ -223,7 +235,8 @@ const SpatialDocument = (() => {
           if (ids.size) snapshot.occupied[key] = ids.size;
           else delete snapshot.occupied[key];
         }
-        for(const [id,values]of groups)entries.push([root+'group/'+encodeURIComponent(id),[...values]]);
+        for (const [id, values] of groups)
+          entries.push([root + "group/" + encodeURIComponent(id), [...values]]);
         for (const [seq, operation] of operations)
           entries.push([root + "history/" + seq, operation]);
         snapshot.revision = meta.revision + 1;
@@ -253,8 +266,27 @@ const SpatialDocument = (() => {
     }
     return {
       query,
-      reindex(entry){rectangle(entry.bounds);tiles(entry.bounds);staged.set(entry.id,copy(entry));objects.values.delete(entry.id);regions.clear();dirty()},
-      async group(id){const ids=new Set(await store.read(root+'group/'+encodeURIComponent(id))||[]);for(const [key,entry]of staged)if(entry?.value.groupId===id)ids.add(key);const values=[];for(const key of ids){const value=await readObject(key);if(value?.value.groupId===id)values.push(copy(value))}return values.sort((a,b)=>a.order-b.order)},
+      reindex(entry) {
+        rectangle(entry.bounds);
+        tiles(entry.bounds);
+        staged.set(entry.id, copy(entry));
+        objects.values.delete(entry.id);
+        regions.clear();
+        dirty();
+      },
+      async group(id) {
+        const ids = new Set(
+          (await store.read(root + "group/" + encodeURIComponent(id))) || [],
+        );
+        for (const [key, entry] of staged)
+          if (entry?.value.groupId === id) ids.add(key);
+        const values = [];
+        for (const key of ids) {
+          const value = await readObject(key);
+          if (value?.value.groupId === id) values.push(copy(value));
+        }
+        return values.sort((a, b) => a.order - b.order);
+      },
       readObject,
       commit,
       save,
@@ -266,6 +298,17 @@ const SpatialDocument = (() => {
       },
       get metadata() {
         return copy(meta);
+      },
+      get overview() {
+        return {
+          tiles: Object.keys(meta.occupied).filter(
+            (key) => meta.occupied[key] > 0,
+          ),
+          pending: [...staged.values()]
+            .filter(Boolean)
+            .map((entry) => copy(entry.bounds)),
+          bookmarks: copy(meta.bookmarks),
+        };
       },
       get dirty() {
         return version !== saved;
@@ -293,12 +336,32 @@ const SpatialDocument = (() => {
       bookmark(name, camera) {
         if (typeof name !== "string" || !name.trim() || name.length > 120)
           throw new Error("Введите название закладки");
+        if (meta.bookmarks.length >= 200)
+          throw new Error("Не более 200 закладок на документ");
+        rectangle({ ...camera, width: 0, height: 0 });
+        if (
+          !Number.isFinite(camera.zoom) ||
+          camera.zoom < 0.5 ||
+          camera.zoom > 3
+        )
+          throw new Error("Неверный масштаб закладки");
+        const id =
+          crypto.randomUUID?.() ||
+          "bookmark-" + Date.now() + "-" + Math.random().toString(36).slice(2);
         meta.bookmarks.push({
-          id: crypto.randomUUID(),
+          id,
           name: name.trim(),
           camera: copy(camera),
         });
         dirty();
+        return id;
+      },
+      removeBookmark(id) {
+        const index = meta.bookmarks.findIndex((value) => value.id === id);
+        if (index < 0) return false;
+        meta.bookmarks.splice(index, 1);
+        dirty();
+        return true;
       },
       get stats() {
         return {

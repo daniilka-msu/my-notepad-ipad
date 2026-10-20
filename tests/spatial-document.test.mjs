@@ -200,8 +200,73 @@ test("edits completed during a pending atomic write are saved in a later revisio
   assert.equal((await reopen.readObject("a")).bounds.x, 100);
   assert.equal(reopen.metadata.cursor, 2);
 });
-test('group membership spans unloaded regions and survives undo and reopening',async()=>{
- const store=memory(),doc=await model.open('group','infinite',store),a=entry('a',0,0),b=entry('b',0,5000);a.value.groupId=b.value.groupId='lesson';doc.commit([{id:'a',before:null,after:a},{id:'b',before:null,after:b}]);await doc.save();
- const reopen=await model.open('group','infinite',store);assert.equal((await reopen.query({x:0,y:0,width:794,height:1123})).length,1);assert.equal((await reopen.group('lesson')).length,2);
- const changed=structuredClone(b);delete changed.value.groupId;reopen.commit([{id:'b',before:b,after:changed}]);assert.equal((await reopen.group('lesson')).length,1);await reopen.save();await reopen.undo();await reopen.save();assert.equal((await reopen.group('lesson')).length,2);
+test("group membership spans unloaded regions and survives undo and reopening", async () => {
+  const store = memory(),
+    doc = await model.open("group", "infinite", store),
+    a = entry("a", 0, 0),
+    b = entry("b", 0, 5000);
+  a.value.groupId = b.value.groupId = "lesson";
+  doc.commit([
+    { id: "a", before: null, after: a },
+    { id: "b", before: null, after: b },
+  ]);
+  await doc.save();
+  const reopen = await model.open("group", "infinite", store);
+  assert.equal(
+    (await reopen.query({ x: 0, y: 0, width: 794, height: 1123 })).length,
+    1,
+  );
+  assert.equal((await reopen.group("lesson")).length, 2);
+  const changed = structuredClone(b);
+  delete changed.value.groupId;
+  reopen.commit([{ id: "b", before: b, after: changed }]);
+  assert.equal((await reopen.group("lesson")).length, 1);
+  await reopen.save();
+  await reopen.undo();
+  await reopen.save();
+  assert.equal((await reopen.group("lesson")).length, 2);
+});
+test("overview reads metadata and staged bounds without fetching vector objects", async () => {
+  const store = memory(),
+    doc = await model.open("overview", "infinite", store),
+    a = entry("a", -2000, 4000);
+  doc.commit([{ id: "a", before: null, after: a }]);
+  assert.equal(doc.overview.pending[0].x, -2000);
+  await doc.save();
+  doc.clearCache();
+  let reads = 0;
+  const read = store.read;
+  store.read = async (...args) => {
+    reads++;
+    return read(...args);
+  };
+  assert.ok(doc.overview.tiles.includes("-4,7"));
+  assert.equal(doc.overview.pending.length, 0);
+  assert.equal(reads, 0);
+  assert.equal(doc.stats.objectCache, 0);
+});
+test("bookmarks persist, validate positions, retain dirty state on errors and can be removed", async () => {
+  const store = memory(),
+    doc = await model.open("bookmarks", "infinite", store),
+    camera = { x: -3000, y: 45000, zoom: 1.7, scrollX: 24, scrollY: 50 };
+  assert.throws(() => doc.bookmark(" ", camera));
+  assert.throws(() => doc.bookmark("invalid", { ...camera, zoom: Infinity }));
+  assert.throws(() => doc.bookmark("invalid", { ...camera, x: 1e12 }));
+  const id = doc.bookmark("Производные", camera);
+  store.fail(true);
+  await assert.rejects(doc.save());
+  assert.equal(doc.dirty, true);
+  assert.equal(doc.overview.bookmarks.length, 1);
+  store.fail(false);
+  await doc.save();
+  const reopen = await model.open("bookmarks", "infinite", store);
+  assert.equal(reopen.overview.bookmarks[0].camera.y, 45000);
+  assert.equal(reopen.overview.bookmarks[0].camera.zoom, 1.7);
+  assert.equal(reopen.removeBookmark(id), true);
+  await reopen.save();
+  assert.equal(
+    (await model.open("bookmarks", "infinite", store)).overview.bookmarks
+      .length,
+    0,
+  );
 });
