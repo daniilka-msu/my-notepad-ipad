@@ -16,9 +16,23 @@ const Brushes = (() => {
   function softSprite(color){
     if(sprites.has(color))return sprites.get(color);const image=document.createElement('canvas');image.width=image.height=64;const c=image.getContext('2d'),gradient=c.createRadialGradient(32,32,2,32,32,32);gradient.addColorStop(0,color);gradient.addColorStop(.65,color);gradient.addColorStop(1,'transparent');c.fillStyle=gradient;c.fillRect(0,0,64,64);if(sprites.size>=8)sprites.delete(sprites.keys().next().value);sprites.set(color,image);return image;
   }
+  function constantWidth(s){
+    if(!s.points?.length||!['regular','ballpoint','gel'].includes(s.penType||'regular'))return null;
+    const first=s.points[0];
+    if(s.pressure&&(!Number.isFinite(first.p)||first.pressureValid===false||!s.points.every(p=>p.p===first.p&&p.pressureValid!==false)))return null;
+    const pressure=s.pressure?Math.min(1,Math.max(0,first.p)):.5,factor=s.pressure ? .3+pressure*1.4 : 1;
+    return Math.max(.4,s.penType==='ballpoint'?s.width*.8*(s.pressure ? .8+pressure*.4 : 1):s.width*factor*(s.penType==='gel'?1.15:1));
+  }
   function render(c,s){
     if(!s.points?.length)return;const kind=labels[s.penType]?s.penType:'regular',width=s.width;
     c.save();c.fillStyle=c.strokeStyle=s.color;c.lineCap='round';c.lineJoin='round';
+    const thickness=constantWidth(s);
+    if(thickness!==null){
+        const first=s.points[0];c.lineWidth=thickness;c.beginPath();
+        if(s.points.length===1){c.arc(first.x,first.y,c.lineWidth/2,0,Math.PI*2);c.fill()}
+        else{c.moveTo(first.x,first.y);for(let i=1;i<s.points.length;i++)c.lineTo(s.points[i].x,s.points[i].y);c.stroke()}
+        c.restore();return;
+    }
     if(kind==='dashed'){
       c.lineWidth=width;c.setLineDash([width*3,width*2]);c.beginPath();s.points.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));if(s.points.length===1)c.lineTo(s.points[0].x+.01,s.points[0].y);c.stroke();c.restore();return;
     }
@@ -49,5 +63,5 @@ const Brushes = (() => {
     for(let x=16;x<canvas.width-16;x+=3){const point={x,y:canvas.height/2+canvas.height*.2*Math.sin(x/32)+2*Math.sin(x*1.7),p:.5};points.push(filter?filter(point,points.at(-1)):point)}
     render(c,{...style,points,pressure:false,seed:17});const target=canvas.getContext('2d');target.clearRect(0,0,canvas.width,canvas.height);target.save();target.globalAlpha=(style.opacity??1)*(style.tool==='marker'?.28:1);target.drawImage(layer,0,0);target.restore();
   }
-  return {labels,descriptions,render,preview};
+  return {labels,descriptions,render,preview,constantWidth};
 })();

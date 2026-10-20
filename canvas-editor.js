@@ -47,8 +47,8 @@ window.CanvasEditor = (() => {
     '<label>Цвет бумаги<select id="notebookPaperColor"><option value="white">Белая</option><option value="cream">Кремовая</option><option value="gray">Тёмно-серая</option><option value="black">Чёрная</option></select></label><label>Начальный масштаб<select id="notebookZoom"><option value="0.5">50%</option><option value="1" selected>100%</option><option value="2">200%</option><option value="3">300%</option></select></label>';
   formats.after(paperOptions);
   const nativePos = pos;
-  pos = function (event) {
-    const value = nativePos(event);
+  pos = function (event, rectangle) {
+    const value = nativePos(event, rectangle);
     if (book.canvasDocument?.format === "continuous")
       value.x = Math.max(0, Math.min(W, value.x));
     return value;

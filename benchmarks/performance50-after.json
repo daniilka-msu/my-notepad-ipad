@@ -1,0 +1,907 @@
+{
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0",
+  "dpr": 1,
+  "results": [
+    {
+      "strokes": 0,
+      "pointsPerStroke": 12,
+      "openMs": 8.2,
+      "saveMs": 1.3,
+      "zoomMs": 0.7,
+      "switchMs": 0.6,
+      "finishMs": 1.4,
+      "activeCounts": {
+        "paint": 24,
+        "stroke": 25,
+        "previousStroke": 0,
+        "ordered": 0,
+        "sidebar": 0,
+        "put": 0,
+        "json": 25,
+        "resize": 0
+      },
+      "finishCounts": {
+        "paint": 1,
+        "stroke": 2,
+        "previousStroke": 2,
+        "ordered": 0,
+        "sidebar": 1,
+        "put": 0,
+        "json": 4,
+        "resize": 0
+      },
+      "activeTiming": {
+        "paint": {
+          "n": 24,
+          "medianMs": 0.2,
+          "p95Ms": 0.3,
+          "maxMs": 0.7,
+          "totalMs": 4.4
+        },
+        "stroke": {
+          "n": 25,
+          "medianMs": 0,
+          "p95Ms": 0.1,
+          "maxMs": 0.5,
+          "totalMs": 1.5
+        },
+        "dispatch": {
+          "n": 97,
+          "medianMs": 0,
+          "p95Ms": 0.2,
+          "maxMs": 0.9,
+          "totalMs": 5.9
+        },
+        "finish": {
+          "n": 0,
+          "medianMs": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "totalMs": 0
+        },
+        "latency": {
+          "n": 24,
+          "medianMs": 7,
+          "p95Ms": 7.1,
+          "maxMs": 7.2,
+          "totalMs": 161.1
+        }
+      },
+      "frameInterval": {
+        "n": 23,
+        "medianMs": 6.95,
+        "p95Ms": 7,
+        "maxMs": 7.05,
+        "totalMs": 159.6
+      },
+      "visibleCanvasPixels": [
+        {
+          "id": "paperRuling",
+          "pixels": 3566648
+        },
+        {
+          "id": "canvas",
+          "pixels": 3566648
+        },
+        {
+          "id": "rulingDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkActive",
+          "pixels": 589275
+        },
+        {
+          "id": "canvasMinimap",
+          "pixels": 144000
+        },
+        {
+          "id": "writingCanvas",
+          "pixels": 45000
+        },
+        {
+          "id": "linePreview",
+          "pixels": 52000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "brushPreview",
+          "pixels": 72000
+        }
+      ],
+      "heapBytes": 5282401
+    },
+    {
+      "strokes": 100,
+      "pointsPerStroke": 12,
+      "openMs": 5.9,
+      "saveMs": 1.7,
+      "zoomMs": 1.1,
+      "switchMs": 0.7,
+      "finishMs": 0.8,
+      "activeCounts": {
+        "paint": 24,
+        "stroke": 25,
+        "previousStroke": 0,
+        "ordered": 0,
+        "sidebar": 0,
+        "put": 0,
+        "json": 25,
+        "resize": 0
+      },
+      "finishCounts": {
+        "paint": 1,
+        "stroke": 2,
+        "previousStroke": 2,
+        "ordered": 0,
+        "sidebar": 1,
+        "put": 0,
+        "json": 4,
+        "resize": 0
+      },
+      "activeTiming": {
+        "paint": {
+          "n": 24,
+          "medianMs": 0.1,
+          "p95Ms": 0.2,
+          "maxMs": 0.5,
+          "totalMs": 3.6
+        },
+        "stroke": {
+          "n": 25,
+          "medianMs": 0,
+          "p95Ms": 0.1,
+          "maxMs": 0.1,
+          "totalMs": 0.8
+        },
+        "dispatch": {
+          "n": 97,
+          "medianMs": 0,
+          "p95Ms": 0.1,
+          "maxMs": 0.7,
+          "totalMs": 4.4
+        },
+        "finish": {
+          "n": 0,
+          "medianMs": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "totalMs": 0
+        },
+        "latency": {
+          "n": 24,
+          "medianMs": 6.9,
+          "p95Ms": 7,
+          "maxMs": 8.9,
+          "totalMs": 166.3
+        }
+      },
+      "frameInterval": {
+        "n": 23,
+        "medianMs": 6.95,
+        "p95Ms": 7,
+        "maxMs": 7,
+        "totalMs": 159.5
+      },
+      "visibleCanvasPixels": [
+        {
+          "id": "paperRuling",
+          "pixels": 3566648
+        },
+        {
+          "id": "canvas",
+          "pixels": 3566648
+        },
+        {
+          "id": "rulingDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkActive",
+          "pixels": 589275
+        },
+        {
+          "id": "canvasMinimap",
+          "pixels": 144000
+        },
+        {
+          "id": "writingCanvas",
+          "pixels": 45000
+        },
+        {
+          "id": "linePreview",
+          "pixels": 52000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "brushPreview",
+          "pixels": 72000
+        }
+      ],
+      "heapBytes": 4734094
+    },
+    {
+      "strokes": 1000,
+      "pointsPerStroke": 12,
+      "openMs": 68.3,
+      "saveMs": 4.9,
+      "zoomMs": 2.7,
+      "switchMs": 0.5,
+      "finishMs": 0.8,
+      "activeCounts": {
+        "paint": 24,
+        "stroke": 25,
+        "previousStroke": 0,
+        "ordered": 0,
+        "sidebar": 0,
+        "put": 0,
+        "json": 25,
+        "resize": 0
+      },
+      "finishCounts": {
+        "paint": 1,
+        "stroke": 2,
+        "previousStroke": 2,
+        "ordered": 0,
+        "sidebar": 1,
+        "put": 0,
+        "json": 4,
+        "resize": 0
+      },
+      "activeTiming": {
+        "paint": {
+          "n": 24,
+          "medianMs": 0.1,
+          "p95Ms": 0.2,
+          "maxMs": 0.2,
+          "totalMs": 3.4
+        },
+        "stroke": {
+          "n": 25,
+          "medianMs": 0,
+          "p95Ms": 0.1,
+          "maxMs": 0.1,
+          "totalMs": 0.4
+        },
+        "dispatch": {
+          "n": 97,
+          "medianMs": 0,
+          "p95Ms": 0.1,
+          "maxMs": 0.2,
+          "totalMs": 2.9
+        },
+        "finish": {
+          "n": 0,
+          "medianMs": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "totalMs": 0
+        },
+        "latency": {
+          "n": 24,
+          "medianMs": 6.9,
+          "p95Ms": 7,
+          "maxMs": 7.1,
+          "totalMs": 162.9
+        }
+      },
+      "frameInterval": {
+        "n": 23,
+        "medianMs": 6.95,
+        "p95Ms": 7,
+        "maxMs": 7,
+        "totalMs": 159.7
+      },
+      "visibleCanvasPixels": [
+        {
+          "id": "paperRuling",
+          "pixels": 3566648
+        },
+        {
+          "id": "canvas",
+          "pixels": 3566648
+        },
+        {
+          "id": "rulingDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkActive",
+          "pixels": 589275
+        },
+        {
+          "id": "canvasMinimap",
+          "pixels": 144000
+        },
+        {
+          "id": "writingCanvas",
+          "pixels": 45000
+        },
+        {
+          "id": "linePreview",
+          "pixels": 52000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "brushPreview",
+          "pixels": 72000
+        }
+      ],
+      "heapBytes": 6055450
+    },
+    {
+      "strokes": 5000,
+      "pointsPerStroke": 12,
+      "openMs": 49.2,
+      "saveMs": 21.5,
+      "zoomMs": 8.4,
+      "switchMs": 0.6,
+      "finishMs": 1.1,
+      "activeCounts": {
+        "paint": 24,
+        "stroke": 25,
+        "previousStroke": 0,
+        "ordered": 0,
+        "sidebar": 0,
+        "put": 0,
+        "json": 25,
+        "resize": 0
+      },
+      "finishCounts": {
+        "paint": 1,
+        "stroke": 2,
+        "previousStroke": 2,
+        "ordered": 0,
+        "sidebar": 1,
+        "put": 0,
+        "json": 4,
+        "resize": 0
+      },
+      "activeTiming": {
+        "paint": {
+          "n": 24,
+          "medianMs": 0.1,
+          "p95Ms": 0.2,
+          "maxMs": 0.3,
+          "totalMs": 3
+        },
+        "stroke": {
+          "n": 25,
+          "medianMs": 0,
+          "p95Ms": 0.1,
+          "maxMs": 0.1,
+          "totalMs": 1
+        },
+        "dispatch": {
+          "n": 97,
+          "medianMs": 0,
+          "p95Ms": 0.1,
+          "maxMs": 0.3,
+          "totalMs": 3.3
+        },
+        "finish": {
+          "n": 0,
+          "medianMs": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "totalMs": 0
+        },
+        "latency": {
+          "n": 24,
+          "medianMs": 6.9,
+          "p95Ms": 8.2,
+          "maxMs": 217.3,
+          "totalMs": 377.4
+        }
+      },
+      "frameInterval": {
+        "n": 23,
+        "medianMs": 6.95,
+        "p95Ms": 7,
+        "maxMs": 7.05,
+        "totalMs": 159.75
+      },
+      "visibleCanvasPixels": [
+        {
+          "id": "paperRuling",
+          "pixels": 3566648
+        },
+        {
+          "id": "canvas",
+          "pixels": 3566648
+        },
+        {
+          "id": "rulingDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkActive",
+          "pixels": 589275
+        },
+        {
+          "id": "canvasMinimap",
+          "pixels": 144000
+        },
+        {
+          "id": "writingCanvas",
+          "pixels": 45000
+        },
+        {
+          "id": "linePreview",
+          "pixels": 52000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "brushPreview",
+          "pixels": 72000
+        }
+      ],
+      "heapBytes": 10869716
+    },
+    {
+      "strokes": 10000,
+      "pointsPerStroke": 12,
+      "openMs": 74.4,
+      "saveMs": 40,
+      "zoomMs": 16.7,
+      "switchMs": 0.5,
+      "finishMs": 2.8,
+      "activeCounts": {
+        "paint": 24,
+        "stroke": 25,
+        "previousStroke": 0,
+        "ordered": 0,
+        "sidebar": 0,
+        "put": 0,
+        "json": 25,
+        "resize": 0
+      },
+      "finishCounts": {
+        "paint": 1,
+        "stroke": 2,
+        "previousStroke": 2,
+        "ordered": 0,
+        "sidebar": 1,
+        "put": 0,
+        "json": 4,
+        "resize": 0
+      },
+      "activeTiming": {
+        "paint": {
+          "n": 24,
+          "medianMs": 0.1,
+          "p95Ms": 0.3,
+          "maxMs": 0.4,
+          "totalMs": 3.7
+        },
+        "stroke": {
+          "n": 25,
+          "medianMs": 0,
+          "p95Ms": 0.1,
+          "maxMs": 0.1,
+          "totalMs": 0.7
+        },
+        "dispatch": {
+          "n": 97,
+          "medianMs": 0,
+          "p95Ms": 0.2,
+          "maxMs": 0.2,
+          "totalMs": 4.1
+        },
+        "finish": {
+          "n": 0,
+          "medianMs": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "totalMs": 0
+        },
+        "latency": {
+          "n": 24,
+          "medianMs": 6.9,
+          "p95Ms": 7,
+          "maxMs": 512,
+          "totalMs": 663.9
+        }
+      },
+      "frameInterval": {
+        "n": 23,
+        "medianMs": 6.95,
+        "p95Ms": 7,
+        "maxMs": 13.2,
+        "totalMs": 162.8
+      },
+      "visibleCanvasPixels": [
+        {
+          "id": "paperRuling",
+          "pixels": 3566648
+        },
+        {
+          "id": "canvas",
+          "pixels": 3566648
+        },
+        {
+          "id": "rulingDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkDetail",
+          "pixels": 589275
+        },
+        {
+          "id": "inkActive",
+          "pixels": 589275
+        },
+        {
+          "id": "canvasMinimap",
+          "pixels": 144000
+        },
+        {
+          "id": "writingCanvas",
+          "pixels": 45000
+        },
+        {
+          "id": "linePreview",
+          "pixels": 52000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "",
+          "pixels": 9000
+        },
+        {
+          "id": "brushPreview",
+          "pixels": 72000
+        }
+      ],
+      "heapBytes": 16031172
+    }
+  ],
+  "hot": [
+    {
+      "scenario": "ordered-1000",
+      "active": {
+        "counts": {
+          "paint": 12,
+          "stroke": 13,
+          "previousStroke": 0,
+          "ordered": 0,
+          "sidebar": 0,
+          "put": 0,
+          "json": 13,
+          "resize": 0
+        },
+        "timings": {
+          "paint": {
+            "n": 12,
+            "medianMs": 0.2,
+            "p95Ms": 0.2,
+            "maxMs": 0.2,
+            "totalMs": 1.6
+          },
+          "stroke": {
+            "n": 13,
+            "medianMs": 0,
+            "p95Ms": 0.1,
+            "maxMs": 0.1,
+            "totalMs": 0.4
+          },
+          "dispatch": {
+            "n": 193,
+            "medianMs": 0,
+            "p95Ms": 0.1,
+            "maxMs": 0.2,
+            "totalMs": 3.7
+          },
+          "finish": {
+            "n": 0,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0,
+            "totalMs": 0
+          },
+          "latency": {
+            "n": 12,
+            "medianMs": 6.8,
+            "p95Ms": 7,
+            "maxMs": 7,
+            "totalMs": 70.9
+          }
+        }
+      },
+      "finishMs": 1.5,
+      "finishCounts": {
+        "paint": 1,
+        "stroke": 100,
+        "previousStroke": 100,
+        "ordered": 2,
+        "sidebar": 1,
+        "put": 0,
+        "json": 4,
+        "resize": 0
+      }
+    },
+    {
+      "scenario": "long-active",
+      "active": {
+        "counts": {
+          "paint": 80,
+          "stroke": 81,
+          "previousStroke": 0,
+          "ordered": 0,
+          "sidebar": 0,
+          "put": 0,
+          "json": 81,
+          "resize": 0
+        },
+        "timings": {
+          "paint": {
+            "n": 80,
+            "medianMs": 0.2,
+            "p95Ms": 0.3,
+            "maxMs": 0.3,
+            "totalMs": 13.1
+          },
+          "stroke": {
+            "n": 81,
+            "medianMs": 0,
+            "p95Ms": 0.1,
+            "maxMs": 0.2,
+            "totalMs": 4.3
+          },
+          "dispatch": {
+            "n": 1281,
+            "medianMs": 0,
+            "p95Ms": 0.1,
+            "maxMs": 0.2,
+            "totalMs": 18.2
+          },
+          "finish": {
+            "n": 0,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0,
+            "totalMs": 0
+          },
+          "latency": {
+            "n": 80,
+            "medianMs": 6.9,
+            "p95Ms": 7.5,
+            "maxMs": 8.3,
+            "totalMs": 545.5
+          }
+        }
+      },
+      "finishMs": 0.8999999761581421,
+      "finishCounts": {
+        "paint": 1,
+        "stroke": 2,
+        "previousStroke": 2,
+        "ordered": 0,
+        "sidebar": 1,
+        "put": 0,
+        "json": 4,
+        "resize": 0
+      }
+    }
+  ],
+  "extra": [
+    {
+      "fixture": "image-1000",
+      "openMs": 7.900000035762787,
+      "saveMs": 4.699999988079071
+    },
+    {
+      "fixture": "continuous-2000-separated",
+      "openMs": 25.5,
+      "moveMs": 5.400000035762787,
+      "saveMs": 6,
+      "moved": true,
+      "cache": {
+        "regionCache": 0,
+        "objectCache": 8,
+        "dirtyObjects": 0
+      },
+      "loadedObjects": 2
+    },
+    {
+      "fixture": "infinite-2000-separated",
+      "openMs": 20.5,
+      "moveMs": 5.699999988079071,
+      "saveMs": 6.300000011920929,
+      "moved": true,
+      "cache": {
+        "regionCache": 0,
+        "objectCache": 4,
+        "dirtyObjects": 0
+      },
+      "loadedObjects": 0
+    }
+  ]
+}

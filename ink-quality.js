@@ -1,13 +1,16 @@
 window.InkQuality = (() => {
   const detail = document.createElement("canvas"),
+    active = document.createElement("canvas"),
     ruling = document.createElement("canvas");
   detail.id = "inkDetail";
+  active.id = "inkActive";
+  active.hidden = true;
   ruling.id = "rulingDetail";
-  for (const layer of [ruling, detail]) {
+  for (const layer of [ruling, detail, active]) {
     layer.setAttribute("aria-hidden", "true");
     $("page").append(layer);
   }
-  const surface = InkSurface.create(detail);
+  const surface = InkSurface.create(detail, 4000000, active);
   let frame = null,
     paperKey = "",
     fallbackUntil = 0;
@@ -48,12 +51,12 @@ window.InkQuality = (() => {
         height,
         drawing,
       );
-      for (const layer of [detail, ruling]) {
+      for (const layer of [detail, ruling, active]) {
         layer.style.left = left - r.left + "px";
         layer.style.top = top - r.top + "px";
         layer.style.width = width + "px";
         layer.style.height = height + "px";
-        layer.hidden = false;
+        if (layer !== active) layer.hidden = false;
       }
       const nextPaper = JSON.stringify([
         metrics.width,
@@ -85,6 +88,7 @@ window.InkQuality = (() => {
       if ($("paperRuling")) $("paperRuling").style.opacity = "0";
       detail.dataset.documentScale = metrics.sx;
       detail.dataset.density = metrics.density;
+      return true;
     } catch {
       fallbackUntil = performance.now() + 10000;
       hide();
@@ -92,6 +96,7 @@ window.InkQuality = (() => {
   }
   function hide() {
     detail.hidden = ruling.hidden = true;
+    active.hidden = true;
     canvas.style.opacity = "";
     if ($("paperRuling")) $("paperRuling").style.opacity = "";
     surface.release();
@@ -110,5 +115,12 @@ window.InkQuality = (() => {
   });
   document.addEventListener("notepad:screen", schedule);
   document.addEventListener("notepad:render", schedule);
-  return { schedule, refresh, invalidate: surface.invalidate };
+  function paintActive() {
+    if (frame !== null) {
+      cancelAnimationFrame(frame);
+      frame = null;
+    }
+    return refresh() === true;
+  }
+  return { schedule, refresh, paintActive, invalidate: surface.invalidate };
 })();

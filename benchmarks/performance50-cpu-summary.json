@@ -1,0 +1,67 @@
+{
+  "method": "CDP Profiler, whole final synthetic scenario; sampling self time, not per-stroke latency",
+  "durationMs": 5692.69,
+  "samples": 3617,
+  "topFunctions": [
+    {
+      "functionName": "(idle)",
+      "selfSampleMs": 4332.54
+    },
+    {
+      "functionName": "(program)",
+      "selfSampleMs": 474.26
+    },
+    {
+      "functionName": "IDBObjectStore.put",
+      "selfSampleMs": 142.98
+    },
+    {
+      "functionName": "transaction",
+      "selfSampleMs": 81.05
+    },
+    {
+      "functionName": "",
+      "selfSampleMs": 79.49
+    },
+    {
+      "functionName": "put",
+      "selfSampleMs": 77.79
+    },
+    {
+      "functionName": "copy",
+      "selfSampleMs": 74.35
+    },
+    {
+      "functionName": "get",
+      "selfSampleMs": 66.21
+    },
+    {
+      "functionName": "(garbage collector)",
+      "selfSampleMs": 52.98
+    },
+    {
+      "functionName": "getBoundingClientRect",
+      "selfSampleMs": 33.5
+    },
+    {
+      "functionName": "stroke",
+      "selfSampleMs": 32.97
+    },
+    {
+      "functionName": "render",
+      "selfSampleMs": 27.42
+    },
+    {
+      "functionName": "draw",
+      "selfSampleMs": 18.16
+    },
+    {
+      "functionName": "layout",
+      "selfSampleMs": 13.94
+    },
+    {
+      "functionName": "event",
+      "selfSampleMs": 13.85
+    }
+  ]
+}
