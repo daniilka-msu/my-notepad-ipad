@@ -31,5 +31,5 @@ const ImageObjects = (() => {
     }finally{URL.revokeObjectURL(url)}
   }
   function valid(s){return s?.type==='image-object'&&(s.locked===undefined||typeof s.locked==='boolean')&&typeof s.asset==='string'&&s.asset.length>0&&s.asset.length<200&&['x','y','width','height'].every(k=>Number.isFinite(s[k])&&Math.abs(s[k])<100000)&&s.width>=10&&s.height>=10&&[0,90,180,270].includes(s.rotation)&&Array.isArray(s.crop)&&s.crop.length===4&&s.crop.every(n=>Number.isFinite(n)&&n>=0&&n<=1)&&s.crop[2]>.01&&s.crop[3]>.01&&s.crop[0]+s.crop[2]<=1.000001&&s.crop[1]+s.crop[3]<=1.000001}
-  return {assetIds,prepare,render,importFile,bounds,valid};
+  return {assetIds,prepare,render,importFile,bounds,valid,retain(ids){const keep=new Set(ids);for(const id of cache.keys())if(!keep.has(id))cache.delete(id)}};
 })();

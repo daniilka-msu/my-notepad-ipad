@@ -12,14 +12,20 @@ const NotepadStore=(()=>{
   }
   async function read(key='current'){return request(database.transaction('library').objectStore('library').get(key))}
   async function upgradeLibrary(previous,next){const tx=database.transaction('library','readwrite'),done=complete(tx),store=tx.objectStore('library');store.put(previous,'before-home-v1');store.put(next,'current');await done}
-  function write(value,assets=[],canWrite=()=>true){
+  function libraryValue(value){
+    const source=typeof value==='function'?value():value;
+    if(!source?.books?.some(b=>b.canvasDocument))return source;
+    return {...source,books:source.books.map(b=>{if(!b.canvasDocument)return b;const {canvasCamera,...metadata}=b;return {...metadata,pages:[[]]}})};
+  }
+  function write(value,assets=[],canWrite=()=>true,records=[]){
     const result=writes.then(async()=>{
       const portable=assets.length?await portableAssets(assets):[];
       if(!canWrite())return false;
       const tx=database.transaction(['library','assets'],'readwrite'),done=complete(tx);
       try{
         for(const [id,blob]of portable)tx.objectStore('assets').put(blob,id);
-        tx.objectStore('library').put(typeof value==='function'?value():value,'current');
+        for(const [key,record]of records)tx.objectStore('library').put(record,key);
+        tx.objectStore('library').put(libraryValue(value),'current');
       }catch(error){tx.abort();await done.catch(()=>{});throw error}
       await done;
     });
@@ -45,5 +51,22 @@ const NotepadStore=(()=>{
     const tx=database.transaction('library'),store=tx.objectStore('library');
     return request(store.getAll(IDBKeyRange.bound(prefix,prefix+'\uffff')));
   }
-  return {open,read,write,asset,putAssets,upgradeLibrary,writeRecord,records};
+  async function entries(prefix){
+    const tx=database.transaction('library'),store=tx.objectStore('library'),range=IDBKeyRange.bound(prefix,prefix+'\uffff');
+    const [keys,values]=await Promise.all([request(store.getAllKeys(range)),request(store.getAll(range))]);return keys.map((key,i)=>[key,values[i]]);
+  }
+  function batchRecords(entries,remove=[],guard=null,canWrite=()=>true){
+    const result=writes.then(async()=>{
+      if(!canWrite())return false;
+      const tx=database.transaction('library','readwrite'),done=complete(tx),store=tx.objectStore('library');
+      let conflict=false,inputStarted=false,writeError;
+      const apply=()=>{try{for(const key of remove)store.delete(key);for(const [key,value]of entries)store.put(value,key)}catch(error){writeError=error;tx.abort()}};
+      if(guard){
+        const check=store.get(guard.key);check.onsuccess=()=>{if(!canWrite()){inputStarted=true;tx.abort()}else if((check.result?.revision||0)!==guard.revision){conflict=true;tx.abort()}else apply()};
+      }else apply();
+      try{await done}catch(error){if(inputStarted)return false;throw new Error(conflict?'Документ изменён в другом окне. Закройте второе окно; несохранённые данные остаются в памяти.':(writeError||error).message)}
+      return true;
+    });writes=result.catch(()=>{});return result;
+  }
+  return {open,read,write,asset,putAssets,upgradeLibrary,writeRecord,records,batchRecords,libraryValue,entries};
 })();

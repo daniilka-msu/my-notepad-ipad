@@ -14,6 +14,7 @@ const Backups=(()=>{
       if(!isObject(b)||typeof b.id!=='string'||ids.has(b.id)||typeof b.name!=='string'||!Array.isArray(b.pages)||!b.pages.length)throw new Error('Неверная структура тетради');
       if(['createdAt','modifiedAt','lastOpenedAt','deletedAt'].some(k=>b[k]!==undefined&&b[k]!==null&&(!Number.isFinite(b[k])||b[k]<0||b[k]>8640000000000000))||(b.favorite!==undefined&&typeof b.favorite!=='boolean')||(b.folderId!==undefined&&b.folderId!==null&&typeof b.folderId!=='string')||(b.cover!==undefined&&(!isObject(b.cover)||!/^#[0-9a-f]{6}$/i.test(b.cover.color)||!['plain','band','dots'].includes(b.cover.pattern))))throw new Error('Повреждены свойства блокнота');
       ids.add(b.id);if(!['grid','lines','dots','blank'].includes(b.paper))throw new Error('Неизвестная разлиновка');
+      if(b.canvasDocument&&(b.canvasDocument.version!==1||!['continuous','infinite'].includes(b.canvasDocument.format)))throw new Error('Неизвестный формат бесконечного документа');
       if(b.paperColor&&!['white','cream','gray','black'].includes(b.paperColor))throw new Error('Неверный цвет бумаги');
       if(b.gridMm!==undefined&&![5,7,10].includes(b.gridMm))throw new Error('Неверный размер клетки');
       if(b.pageSize&&!['a4','a5','square'].includes(b.pageSize))throw new Error('Неверный размер бумаги');
@@ -67,10 +68,13 @@ const Backups=(()=>{
   async function merge(current,backup){
     const assets=[],idMap=new Map();for(const [id,blob]of backup.assets){const newId=uid();idMap.set(id,newId);assets.push([newId,blob])}
     const importedFolders=structuredClone(backup.library.folders||[]),folderMap=new Map();for(const f of importedFolders){const old=f.id;f.id=uid();folderMap.set(old,f.id)}
-    const books=structuredClone(backup.library.books);for(const b of books){b.folderId=folderMap.get(b.folderId)||null;b.id=uid();b.name+=' (копия)';for(const bg of b.backgrounds||[])if(bg)bg.id=idMap.get(bg.id)}
+    const bookMap=new Map(),books=structuredClone(backup.library.books);for(const b of books){const previous=b.id;b.folderId=folderMap.get(b.folderId)||null;b.id=uid();bookMap.set(previous,b.id);b.name+=' (копия)';for(const bg of b.backgrounds||[])if(bg)bg.id=idMap.get(bg.id)}
     for(const b of books)for(const items of b.pages)for(const s of items)for(const v of [s,s.value])if(v?.type==='image-object')v.asset=idMap.get(v.asset);
     const next={...current,books:[...current.books,...books],folders:[...(current.folders||[]),...importedFolders],selected:books.find(b=>b.deletedAt==null)?.id||current.selected};
-    await NotepadStore.write(next,assets);return next;
+    const records=[];
+    function remap(value){if(!value||typeof value!=='object')return;if(value.type==='image-object')value.asset=idMap.get(value.asset);for(const child of Object.values(value))if(child&&typeof child==='object')remap(child)}
+    for(const [source,values]of backup.canvasRecords||[]){const root=SpatialDocument.prefix(bookMap.get(source));for(const [suffix,value]of values){const entry=structuredClone(value);remap(entry);records.push([root+suffix,entry])}}
+    await NotepadStore.write(next,assets,()=>true,records);return next;
   }
   return {validateLibrary,create,parse,merge};
 })();

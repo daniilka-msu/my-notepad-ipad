@@ -48,5 +48,5 @@ const PageView=(()=>{
   workspace.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();finish();fitted=false;setZoom(zoom*Math.exp(-e.deltaY*.002),e.clientX,e.clientY)}},{passive:false});
   new ResizeObserver((entries,observer)=>{if(!workspace.isConnected){observer.disconnect();return}if(fitted)fit();else layout()}).observe(workspace);
   new MutationObserver(layout).observe(sheet,{attributes:true,attributeFilter:['class']});
-  fit();return {setZoom,fit,get zoom(){return zoom},layout};
+  fit();return {setZoom,fit,get zoom(){return zoom},layout,resetGesture(){touches.clear();blocked.clear();gesture=null}};
 })();

@@ -12,15 +12,16 @@ const Paper = (() => {
   function draw(context, notebook) {
     if (notebook.paper === 'blank') return;
     const step = ruling(notebook);
+    const camera=notebook.canvasCamera||{x:0,y:0},offsetX=-(camera.x%step.x),offsetY=-(camera.y%step.y);
     context.save();context.strokeStyle = ['gray', 'black'].includes(notebook.paperColor) ? '#596273' : '#dce7f6';context.fillStyle = context.strokeStyle;
     context.lineWidth = 1;
     if (notebook.paper === 'dots') {
-      for (let x = step.dotX; x < width; x += step.x) for (let y = step.dotY; y < height; y += step.y) {
+      for (let x = offsetX+step.dotX; x < width; x += step.x) for (let y = offsetY+step.dotY; y < height; y += step.y) {
         context.beginPath();context.ellipse(x,y,1,height / geometry(notebook).outputHeight,0,0,Math.PI * 2);context.fill();
       }
     } else {
-      for (let y = 0; y < height; y += step.y) {context.beginPath();context.moveTo(0,y);context.lineTo(width,y);context.stroke()}
-      if (notebook.paper === 'grid') for (let x = 0; x < width; x += step.x) {context.beginPath();context.moveTo(x,0);context.lineTo(x,height);context.stroke()}
+      for (let y = offsetY; y < height; y += step.y) {context.beginPath();context.moveTo(0,y);context.lineTo(width,y);context.stroke()}
+      if (notebook.paper === 'grid') for (let x = offsetX; x < width; x += step.x) {context.beginPath();context.moveTo(x,0);context.lineTo(x,height);context.stroke()}
     }
     context.restore();
   }
@@ -31,7 +32,7 @@ const Paper = (() => {
     // This backing store is in document coordinates and is independent of screen zoom.
     background.hidden=!!notebook.backgrounds?.[index];
     sheet.dataset.gridX=step.x;sheet.dataset.gridY=step.y;sheet.style.aspectRatio=g.outputWidth+' / '+g.outputHeight;
-    const key=JSON.stringify([notebook.paper,notebook.paperColor,notebook.pageSize,notebook.gridMm]);
+    const key=JSON.stringify([notebook.paper,notebook.paperColor,notebook.pageSize,notebook.gridMm,notebook.canvasCamera]);
     if(background.dataset.ruling===key)return;
     background.dataset.ruling=key;
     background.width=width * 2;background.height=height * 2;

@@ -63,6 +63,7 @@ window.InkQuality = (() => {
         book.paperColor,
         book.gridMm,
         book.pageSize,
+        book.canvasCamera,
         !!book.backgrounds?.[page],
       ]);
       if (paperKey !== nextPaper) {

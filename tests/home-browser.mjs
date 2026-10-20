@@ -106,6 +106,8 @@ try {
       );
       const folder = await page.evaluate(() => data.folders[0].id);
       await page.locator("#homeNewBook").click();
+      // This suite verifies the legacy paged notebook lifecycle; canvas formats have separate coverage.
+      await page.locator('[name=documentFormat][value=paged]').check();
       await page.locator("#notebookName").fill("Математика");
       await page.locator("#notebookTemplate").selectOption("math");
       await page.locator("#notebookPattern").selectOption("band");

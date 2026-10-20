@@ -57,6 +57,8 @@ let storageReady=false,storageFailed=false,unsaved=false;
 const saving=Autosave.create({
   write:()=>NotepadStore.write(()=>data,[],()=>!drawing),active:()=>!!drawing,ready:()=>storageReady,
   state:(value,dirty)=>{
+    const spatial=window.CanvasEditor?.session;
+    if(spatial?.model.dirty){dirty=true;if(value==='saved')value=spatial.saveState==='error'?'error':'dirty'}
     unsaved=dirty;
     if(value==='error')storageFailed=true;
     if(value==='saved')storageFailed=false;

@@ -360,6 +360,7 @@ window.LectureUI = (() => {
       observedBooks.add(book);
       for (const s of book.pages.flat()) known.add(s);
     }
+    if(window.CanvasEditor?.projecting)for(const s of book.pages.flat())known.add(s);
     const item = book.pages[page].at(-1),
       fresh = item && !known.has(item);
     if (fresh) delete item.lectureActionId;

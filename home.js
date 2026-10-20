@@ -3,7 +3,7 @@ const Home = (() => {
   root.id = "home";
   root.setAttribute("aria-label", "Домашняя страница My Notepad");
   root.innerHTML =
-    '<header class="home-header"><a class="home-brand" href="#home" aria-label="My Notepad — главная"><img src="icon.svg" alt=""><span>My Notepad<small>HOME & STUDIO · 3.5</small></span></a><div id="homeHeaderActions"></div></header><div class="home-layout"><nav id="homeNav" aria-label="Разделы библиотеки"><button data-view="all">Все блокноты</button><button data-view="favorites">Избранное</button><button data-view="trash">Корзина</button><div class="home-folder-heading"><span>Папки</span><button id="newFolder" aria-label="Создать папку"></button></div><div id="homeFolders"></div><p class="home-local-note">Ваше пространство для мыслей.<br>Сохранение на этом устройстве, работа без сети.</p></nav><div class="home-content"><div class="home-intro"><div><p class="eyebrow">ВАШЕ ЛИЧНОЕ ПРОСТРАНСТВО</p><h1 id="homeTitle">Все блокноты</h1><p id="homeCount" class="hint"></p></div><button id="homeNewBook" class="primary">Новый блокнот</button></div><div class="home-controls"><label class="home-search"><span id="homeSearchIcon"></span><input id="homeSearch" type="search" placeholder="Найти блокнот…" aria-label="Поиск блокнотов"></label><select id="homeSort" aria-label="Сортировка блокнотов"><option value="modified">По дате изменения</option><option value="name">По названию</option></select></div><div id="homeRecent"><h2>Недавно открытые</h2><div id="recentBooks" class="home-recent-grid"></div></div><h2 id="homeGridTitle">Все блокноты</h2><div id="homeBooks" class="home-grid"></div><div id="homeEmpty" class="home-empty" hidden></div></div></div><p id="homeNotice" role="status" aria-live="polite" hidden></p>';
+    '<header class="home-header"><a class="home-brand" href="#home" aria-label="My Notepad — главная"><img src="icon.svg" alt=""><span>My Notepad<small>INFINITE CANVAS · 4.5</small></span></a><div id="homeHeaderActions"></div></header><div class="home-layout"><nav id="homeNav" aria-label="Разделы библиотеки"><button data-view="all">Все блокноты</button><button data-view="favorites">Избранное</button><button data-view="trash">Корзина</button><div class="home-folder-heading"><span>Папки</span><button id="newFolder" aria-label="Создать папку"></button></div><div id="homeFolders"></div><p class="home-local-note">Ваше пространство для мыслей.<br>Сохранение на этом устройстве, работа без сети.</p></nav><div class="home-content"><div class="home-intro"><div><p class="eyebrow">ВАШЕ ЛИЧНОЕ ПРОСТРАНСТВО</p><h1 id="homeTitle">Все блокноты</h1><p id="homeCount" class="hint"></p></div><button id="homeNewBook" class="primary">Новый блокнот</button></div><div class="home-controls"><label class="home-search"><span id="homeSearchIcon"></span><input id="homeSearch" type="search" placeholder="Найти блокнот…" aria-label="Поиск блокнотов"></label><select id="homeSort" aria-label="Сортировка блокнотов"><option value="modified">По дате изменения</option><option value="name">По названию</option></select></div><div id="homeRecent"><h2>Недавно открытые</h2><div id="recentBooks" class="home-recent-grid"></div></div><h2 id="homeGridTitle">Все блокноты</h2><div id="homeBooks" class="home-grid"></div><div id="homeEmpty" class="home-empty" hidden></div></div></div><p id="homeNotice" role="status" aria-live="polite" hidden></p>';
   document.body.append(root);
   $("homeSearchIcon").append(NotepadIcons.create("search"));
   Interface.decorate($("newFolder"), "plus", "Создать папку", true);
@@ -149,7 +149,7 @@ const Home = (() => {
       PageView.setZoom(saved.zoom);
       $("workspace").scrollLeft = saved.x;
       $("workspace").scrollTop = saved.y;
-    } else PageView.fit();
+    } else if(b.initialZoom)PageView.setZoom(b.initialZoom);else PageView.fit();
     if (push) route(id);
     $("bookTitle").setAttribute("tabindex", "-1");
     $("bookTitle").focus({ preventScroll: true });
@@ -219,6 +219,7 @@ const Home = (() => {
     $("notebookPattern").value = "plain";
     $("notebookColor").value = Library.colors[0];
     $("notebookError").textContent = "";
+    const format=document.querySelector('[name=documentFormat][value=continuous]');if(format)format.checked=true;
     coverPreview();
     formDialog.showModal();
     $("notebookName").focus();
@@ -248,6 +249,13 @@ const Home = (() => {
         pattern: $("notebookPattern").value,
       });
       b.folderId = $("notebookFolder").value || null;
+      const format=document.querySelector('[name=documentFormat]:checked')?.value||'paged';
+      if(format!=='paged'){
+        b.canvasDocument={version:1,format,initialZoom:Number($('notebookZoom').value)};
+        b.pageSize='a4';
+      }
+      if($('notebookPaperColor'))b.paperColor=$('notebookPaperColor').value;
+      if($('notebookZoom'))b.initialZoom=Number($('notebookZoom').value);
     } catch (error) {
       $("notebookError").textContent = error.message;
       return;
@@ -294,6 +302,8 @@ const Home = (() => {
   };
   $("duplicateNotebook").onclick = async () => {
     const id = Library.id();
+    const source=data.books.find(b=>b.id===actionId);
+    if(source?.canvasDocument){try{await CanvasEditor.copyDocument(source.id,id)}catch(error){failure(error.message);return}}
     if (
       await commit((next) => {
         const source = next.books.find((b) => b.id === actionId);
@@ -394,8 +404,7 @@ const Home = (() => {
     name.textContent = b.name;
     const meta = document.createElement("small");
     meta.textContent =
-      b.pages.length +
-      " стр. · " +
+      (b.canvasDocument?(b.canvasDocument.format==='continuous'?'Бесконечный A4':'Бескрайнее поле'):b.pages.length+" стр.") + " · " +
       date(recent ? b.lastOpenedAt : b.modifiedAt);
     caption.append(name, meta);
     button.append(cover, caption);
