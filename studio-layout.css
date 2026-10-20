@@ -1,0 +1,64 @@
+/* Compact navigation chrome; document coordinates and canvas sizes are unchanged. */
+:root { --radius-sm: 9px; --radius: 14px; --radius-lg: 20px; --canvas-bg: #e3e7ed; }
+:root[data-theme=dark] { --canvas-bg: #111722; }
+#topbar { min-height: 64px; padding: 8px 20px; gap: 12px; }
+.document-eyebrow { letter-spacing: 1.3px; font-size: 8px; }
+#bookTitle { font-size: 17px; }
+#toolbar { background: var(--surface); padding: 6px 20px; gap: 14px; justify-content: flex-start; }
+.tool-group { background: transparent; box-shadow: none; border: 0; padding: 0; gap: 2px; border-radius: 0; }
+.tool-group .tool { min-width: 44px; padding: 10px; }
+.tool-group .button-label { display: none; }
+.tool.active { box-shadow: inset 0 -3px 0 var(--accent); border-radius: 9px 9px 4px 4px; }
+.pen-properties { padding-left: 14px; border-left: 1px solid var(--border); gap: 12px; }
+.history-tools { padding-left: 10px; margin-left: auto; }
+#workspace { background-image: none; }
+#statusbar { min-height: 54px; padding: 5px 20px; }
+#page { box-shadow: 0 3px 16px #18223818; }
+.home-header { padding: 18px 32px; }
+.home-brand { font-size: 21px; }
+.home-brand img { width: 40px; height: 40px; }
+.home-layout { grid-template-columns: 204px minmax(0,1fr); }
+.home-content { padding: 30px 32px; }
+.home-intro .eyebrow { display: none; }
+.home-intro h1 { font-size: 29px; }
+.home-controls { gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+.home-search { border-radius: 10px; flex-basis: 180px; }
+.home-grid { grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 24px; }
+.home-book-open:hover { transform: none; }
+.home-cover { border-radius: 4px 11px 11px 4px; box-shadow: inset 1px 0 #ffffff44, 0 3px 8px #17254a15; }
+.home-card-actions button { border-color: transparent; background: transparent; }
+.library-views { display: flex; border: 1px solid var(--border); border-radius: 10px; padding: 2px; background: var(--surface); }
+.library-views button { width: 44px; min-height: 44px; }
+.library-views [aria-pressed=true] { background: var(--selected); color: var(--accent); }
+#homeBooks[data-view=list] { display: flex; flex-direction: column; gap: 0; }
+#homeBooks[data-view=list] .home-card { display: flex; align-items: center; border-bottom: 1px solid var(--border); padding: 10px 0; gap: 12px; }
+#homeBooks[data-view=list] .home-book-open { display: flex; align-items: center; justify-content: flex-start; flex: 1; gap: 16px; min-width: 0; }
+#homeBooks[data-view=list] .home-cover { width: 48px; min-width: 48px; height: 62px; min-height: 62px; padding: 10px; }
+#homeBooks[data-view=list] .home-cover strong { display: none; }
+#homeBooks[data-view=list] .home-book-caption { min-width: 0; padding: 0; }
+#homeBooks[data-view=list] .home-card-actions { margin: 0; flex-shrink: 0; }
+#brushDialog { width: min(560px,calc(100vw - 24px)); max-height: min(660px,85dvh); }
+#brushDialog .dialog-header { padding: 14px 20px; }
+#brushDialog .settings-content { padding: 0 20px 16px; }
+#brushOptions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
+#brushOptions button { min-width: 0; padding: 6px; }
+#brushOptions canvas { max-height: 30px; }
+#brushPreview { max-height: 64px; }
+#brushDialog .hint { font-size: 11px; }
+@media(max-width:750px) {
+  #topbar { min-height: 60px; padding: 8px 12px; gap: 6px; }
+  #toolbar { padding: 6px 12px; gap: 6px; }
+  .tool-group { flex: 1; }
+  .pen-properties { border: 0; padding: 0; gap: 12px; }
+  .history-tools { padding: 0; margin-left: 0; }
+  #statusbar { padding: 5px 10px; }
+  .save-pill { display: flex; order: 3; max-width: none; flex-basis: 100%; font-size: 11px; padding: 2px 0; }
+  .home-header { padding: 16px; }
+  .home-layout { display: block; }
+  .home-content { padding: 24px 16px; }
+  .home-controls { flex-direction: row; }
+  .home-search { flex-basis: 100%; }
+  #homeSort { width: auto; flex: 1; min-width: 0; }
+  .home-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 16px; }
+}
+@media(prefers-reduced-motion:reduce) { button { transition: none; } }
