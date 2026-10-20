@@ -1,0 +1,152 @@
+{
+  "reference": "6017bfd",
+  "method": "Standalone brush rendering; alternating trials; two warmups; synthetic varying pressure; not device FPS or app latency",
+  "results": [
+    {
+      "engine": "chromium",
+      "comparisons": 252,
+      "timings": [
+        {
+          "kind": "regular",
+          "points": 2000,
+          "frames": 16,
+          "before": {
+            "medianMs": 0.7,
+            "p95Ms": 1.1,
+            "totalMs": 11.6
+          },
+          "after": {
+            "medianMs": 0.6,
+            "p95Ms": 0.7,
+            "totalMs": 10.1
+          }
+        },
+        {
+          "kind": "pencil",
+          "points": 2000,
+          "frames": 16,
+          "before": {
+            "medianMs": 4.8,
+            "p95Ms": 6.3,
+            "totalMs": 78.7
+          },
+          "after": {
+            "medianMs": 4.6,
+            "p95Ms": 5.2,
+            "totalMs": 74.5
+          }
+        },
+        {
+          "kind": "fountain",
+          "points": 2000,
+          "frames": 16,
+          "before": {
+            "medianMs": 0.8,
+            "p95Ms": 1.2,
+            "totalMs": 13.4
+          },
+          "after": {
+            "medianMs": 0.7,
+            "p95Ms": 0.9,
+            "totalMs": 12.1
+          }
+        },
+        {
+          "kind": "brush",
+          "points": 2000,
+          "frames": 16,
+          "before": {
+            "medianMs": 2,
+            "p95Ms": 3.3,
+            "totalMs": 33.3
+          },
+          "after": {
+            "medianMs": 1.9,
+            "p95Ms": 2.6,
+            "totalMs": 30.9
+          }
+        }
+      ],
+      "allocationEvidence": {
+        "inputPoints": 2000,
+        "referenceSampleObjects": 2236,
+        "currentSampleObjects": 0,
+        "method": "Reference samples counted as four pencil grains per sample; current no per-sample objects by source inspection; not heap bytes"
+      },
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0"
+    },
+    {
+      "engine": "webkit",
+      "comparisons": 252,
+      "timings": [
+        {
+          "kind": "regular",
+          "points": 2000,
+          "frames": 16,
+          "before": {
+            "medianMs": 1,
+            "p95Ms": 1,
+            "totalMs": 8
+          },
+          "after": {
+            "medianMs": 1,
+            "p95Ms": 1,
+            "totalMs": 9
+          }
+        },
+        {
+          "kind": "pencil",
+          "points": 2000,
+          "frames": 16,
+          "before": {
+            "medianMs": 22,
+            "p95Ms": 25,
+            "totalMs": 348
+          },
+          "after": {
+            "medianMs": 21,
+            "p95Ms": 23,
+            "totalMs": 343
+          }
+        },
+        {
+          "kind": "fountain",
+          "points": 2000,
+          "frames": 16,
+          "before": {
+            "medianMs": 5,
+            "p95Ms": 6,
+            "totalMs": 84
+          },
+          "after": {
+            "medianMs": 5,
+            "p95Ms": 6,
+            "totalMs": 87
+          }
+        },
+        {
+          "kind": "brush",
+          "points": 2000,
+          "frames": 16,
+          "before": {
+            "medianMs": 8,
+            "p95Ms": 9,
+            "totalMs": 122
+          },
+          "after": {
+            "medianMs": 8,
+            "p95Ms": 10,
+            "totalMs": 119
+          }
+        }
+      ],
+      "allocationEvidence": {
+        "inputPoints": 2000,
+        "referenceSampleObjects": 2236,
+        "currentSampleObjects": 0,
+        "method": "Reference samples counted as four pencil grains per sample; current no per-sample objects by source inspection; not heap bytes"
+      },
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15"
+    }
+  ]
+}
