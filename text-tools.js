@@ -11,11 +11,14 @@ const TextTools = (() => {
   function hit(s,p){const b=window.SceneObjects?SceneObjects.bounds(s):{x:s.x,y:s.y,width:s.width,height:TextBlocks.layout(s).height};return p.x>=b.x&&p.x<=b.x+b.width&&p.y>=b.y&&p.y<=b.y+b.height}
   function preview(){const field=$('textContent');field.style.fontFamily=TextBlocks.fonts[$('textFont').value];field.style.fontSize=$('textSize').value+'px';field.style.fontWeight=$('textBold').checked?'bold':'normal';field.style.fontStyle=$('textItalic').checked?'italic':'normal';field.style.textAlign=$('textAlign').value;field.style.color=$('textColor').value;field.style.background=$('textBackgroundEnabled').checked?$('textBackground').value:(paperColors[book.paperColor]||paperColors.white);field.style.textDecoration=$('textUnderline').checked?'underline':'none'}
   for(const id of ['textFont','textSize','textBold','textItalic','textAlign','textColor','textUnderline','textBackgroundEnabled','textBackground'])$(id).addEventListener('input',preview);
+  let previewFrame=0;
+  function stopPreview(){if(previewFrame)cancelAnimationFrame(previewFrame);previewFrame=0}
+  function previewPaint(){if(!previewFrame)previewFrame=requestAnimationFrame(()=>{previewFrame=0;if(drag){paint();update()}})}
   function current(){if(!selection||selection.book!==book||selection.page!==page||selection.items!==book.pages[page])return null;const erased=selection.items.some(s=>s.tool==='stroke-eraser'&&s.targets.includes(selection.index));const s=Shapes.resolve(selection.items)[selection.index];return !erased&&s?.type==='text-block'?s:null}
-  function clear(){selection=null;drag=null;Shapes.setPreview(null);frame.hidden=true;inspector.hidden=true}
+  function clear(){stopPreview();selection=null;drag=null;Shapes.setPreview(null);frame.hidden=true;inspector.hidden=true}
   function update(){const s=current();if(!s){clear();return}frame.hidden=false;inspector.hidden=false;const b=window.SceneObjects?SceneObjects.bounds(s):{x:s.x,y:s.y,width:s.width,height:TextBlocks.layout(s).height};$('deleteText').disabled=$('editText').disabled=!!s.locked;$('resizeText').hidden=!!s.locked;Object.assign(frame.style,{left:b.x/W*100+'%',top:b.y/H*100+'%',width:b.width/W*100+'%',height:b.height/H*100+'%'})}
-  function cancel(){if(drag){drag=null;Shapes.setPreview(null);paint()}update()}
-  function commit(value){if(current()?.locked&&value?.locked!==false)return;selection.items.push({type:'text-edit',target:selection.index,value});redo=[];Shapes.setPreview(null);drag=null;render()}
+  function cancel(){stopPreview();if(drag){drag=null;Shapes.setPreview(null);paint()}update()}
+  function commit(value){stopPreview();if(current()?.locked&&value?.locked!==false)return;selection.items.push({type:'text-edit',target:selection.index,value});redo=[];Shapes.setPreview(null);drag=null;render()}
   function open(s,point){draft={book,page,items:book.pages[page],index:s?selection.index:null,point};$('textContent').value=s?.text||'';$('textFont').value=s?.font||'Arial';$('textSize').value=s?.size||24;$('textColor').value=s?.color||preferences.color;$('textAlign').value=s?.align||'left';$('textBold').checked=!!s?.bold;$('textItalic').checked=!!s?.italic;$('textUnderline').checked=!!s?.underline;$('textBackgroundEnabled').checked=!!s?.background;$('textBackground').value=s?.background||'#fff5c9';preview();dialog.showModal();$('textContent').focus()}
   button.onclick=()=>{finish();Editor.choose('textBlock');$('extraTools').open=false};
   $('closeText').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{draft=null});
@@ -42,8 +45,17 @@ const TextTools = (() => {
     if(!drag||e.pointerId!==drag.id||e.pointerType!==drag.type||!validPosition(e)||e.timeStamp<drag.time)return;
     drag.time=e.timeStamp;const p=pos(e),s=drag.original,dx=p.x-drag.point.x,dy=p.y-drag.point.y;
     const angle=(s.rotation||0)*Math.PI/180,localDx=dx*Math.cos(angle)+dy*Paper.geometry(book).outputHeight/H*Math.sin(angle);
-    const value=drag.mode==='resize'?{...s,width:Math.max(40,Math.min(book.canvasDocument||s.rotation?794:Math.max(40,W-s.x),s.width+localDx))}:book.canvasDocument?{...s,x:book.canvasDocument.format==='continuous'?Math.max(0,Math.min(W-s.width,s.x+dx)):s.x+dx,y:book.canvasDocument.format==='continuous'?Math.max(-(book.canvasCamera?.y||0),s.y+dy):s.y+dy}:{...s,x:Math.max(0,Math.min(W-s.width,s.x+dx)),y:Math.max(0,Math.min(H-s.size*1.35,s.y+dy))};
-    Shapes.setPreview({items:selection.items,index:selection.index,value});paint();update();e.preventDefault();e.stopImmediatePropagation();
+    const bounds=window.SceneObjects?SceneObjects.bounds(s):{x:s.x,y:s.y,width:s.width,height:TextBlocks.layout(s).height};
+    let moveX=dx,moveY=dy;
+    const format=book.canvasDocument?.format;
+    if(!format||format==='continuous'){
+      if(bounds.width<=W)moveX=Math.max(-bounds.x,Math.min(W-bounds.x-bounds.width,dx));
+      const top=format==='continuous'?-(book.canvasCamera?.y||0):0;
+      moveY=Math.max(top-bounds.y,dy);
+      if(!format&&bounds.height<=H)moveY=Math.min(H-bounds.y-bounds.height,moveY);
+    }
+    const value=drag.mode==='resize'?{...s,width:Math.max(40,Math.min(book.canvasDocument||s.rotation?794:Math.max(40,W-s.x),s.width+localDx))}:{...s,x:s.x+moveX,y:s.y+moveY};
+    Shapes.setPreview({items:selection.items,index:selection.index,value});previewPaint();e.preventDefault();e.stopImmediatePropagation();
   }
   canvas.addEventListener('pointermove',e=>{if(pending?.id===e.pointerId&&Math.hypot(e.clientX-pending.clientX,e.clientY-pending.clientY)>12)pending=null;move(e)},true);
   canvas.addEventListener('pointerup',e=>{

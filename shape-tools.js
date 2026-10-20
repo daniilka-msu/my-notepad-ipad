@@ -12,11 +12,14 @@ const ShapeTools = (() => {
   }
   function updateLabels(){$('shapeWidthValue').textContent=$('shapeWidth').value+' px';$('shapeOpacityValue').textContent=$('shapeOpacity').value+'%';$('shapeFill').disabled=!$('shapeFillEnabled').checked||!Shapes.closed.has(select.value)}
   for(const id of ['shapeWidth','shapeOpacity','shapeFillEnabled','shapeKind'])$(id).addEventListener('input',updateLabels);
+  let previewFrame=0;
+  function stopPreview(){if(previewFrame)cancelAnimationFrame(previewFrame);previewFrame=0}
+  function previewPaint(){if(!previewFrame)previewFrame=requestAnimationFrame(()=>{previewFrame=0;if(drag){paint();update()}})}
   function current(){if(!selection||selection.book!==book||selection.page!==page||selection.items!==book.pages[page])return null;const hidden=new Set(selection.items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets));return hidden.has(selection.index)?null:Shapes.resolve(selection.items)[selection.index]}
   function update(){const shape=current();if(!shape){clear();return}const b=Shapes.bounds(shape);frame.hidden=false;frame.style.left=b.x/W*100+'%';frame.style.top=b.y/H*100+'%';frame.style.width=Math.max(1,b.right-b.x)/W*100+'%';frame.style.height=Math.max(1,b.bottom-b.y)/H*100+'%';inspector.hidden=false;$('selectedShapeName').textContent=labels[shape.shape]||'Фигура';$('editShape').disabled=$('deleteShape').disabled=!!shape.locked;$('resizeShape').hidden=!!shape.locked}
-  function cancel(){if(drag){Shapes.setPreview(null);drag=null;paint()}update()}
-  function clear(){Shapes.setPreview(null);drag=null;selection=null;frame.hidden=true;inspector.hidden=true}
-  function commit(value){if(!selection||current()?.locked&&value?.locked!==false)return;selection.items.push({type:'shape-edit',target:selection.index,value});redo=[];Shapes.setPreview(null);drag=null;render();update()}
+  function cancel(){stopPreview();if(drag){Shapes.setPreview(null);drag=null;paint()}update()}
+  function clear(){stopPreview();Shapes.setPreview(null);drag=null;selection=null;frame.hidden=true;inspector.hidden=true}
+  function commit(value){stopPreview();if(!selection||current()?.locked&&value?.locked!==false)return;selection.items.push({type:'shape-edit',target:selection.index,value});redo=[];Shapes.setPreview(null);drag=null;render();update()}
   function open(edit){editing=edit;values(edit?current():null);$('applyShape').textContent=edit?'Применить к фигуре':'Рисовать фигуру';$('shapeTitle').textContent=edit?'Свойства фигуры':'Фигуры';dialog.showModal()}
   $('drawShape').onclick=()=>{finish();$('extraTools').open=false;open(false)};$('closeShapes').onclick=()=>dialog.close();$('editShape').onclick=()=>open(true);$('deleteShape').onclick=()=>{commit(null);clear()};$('deselectShape').onclick=clear;
   $('shapeForm').onsubmit=e=>{
@@ -40,7 +43,7 @@ const ShapeTools = (() => {
     let transform;
     if(drag.mode==='move')transform=q=>({...q,x:q.x+dx,y:q.y+dy});
     else{let sx=Math.max(8,b.right-b.x+dx)/Math.max(1,b.right-b.x),sy=Math.max(8,b.bottom-b.y+dy)/Math.max(1,b.bottom-b.y);if(original.shape==='circle')sx=sy=Math.max(sx,sy);transform=q=>({...q,x:b.x+(q.x-b.x)*sx,y:b.y+(q.y-b.y)*sy})}
-    const value={...original,points:original.points.map(transform)};if(value.shapeStart)value.shapeStart=transform(value.shapeStart);if(value.shapeEnd)value.shapeEnd=transform(value.shapeEnd);Shapes.setPreview({items:selection.items,index:selection.index,value});paint();update();e.preventDefault();e.stopImmediatePropagation();
+    const value={...original,points:original.points.map(transform)};if(value.shapeStart)value.shapeStart=transform(value.shapeStart);if(value.shapeEnd)value.shapeEnd=transform(value.shapeEnd);Shapes.setPreview({items:selection.items,index:selection.index,value});previewPaint();e.preventDefault();e.stopImmediatePropagation();
   }
   canvas.addEventListener('pointermove',moved,true);
   canvas.addEventListener('pointerup',e=>{if(!drag||drag.id!==e.pointerId)return;moved(e);const value=current(),changed=JSON.stringify(value)!==JSON.stringify(drag.shape);if(changed)commit(value);else cancel();e.preventDefault();e.stopImmediatePropagation()},true);
