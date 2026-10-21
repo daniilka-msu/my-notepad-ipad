@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-21",
+  "browserChecks": 1214,
+  "pixelComparisons": 504,
+  "unitTests": 52,
+  "suites": [
+    {
+      "name": "overhaul-release-run",
+      "checks": 483
+    },
+    {
+      "name": "overhaul-release-ink",
+      "checks": 120
+    },
+    {
+      "name": "overhaul-release-ui",
+      "checks": 44
+    },
+    {
+      "name": "overhaul-final-save",
+      "checks": 28
+    },
+    {
+      "name": "overhaul-final-canvas",
+      "checks": 43
+    },
+    {
+      "name": "overhaul-final-lasso",
+      "checks": 40
+    },
+    {
+      "name": "overhaul-final-insert",
+      "checks": 30
+    },
+    {
+      "name": "overhaul-final-context",
+      "checks": 32
+    },
+    {
+      "name": "overhaul-final-capture",
+      "checks": 24
+    },
+    {
+      "name": "overhaul-final-overview",
+      "checks": 32
+    },
+    {
+      "name": "overhaul-final-smart",
+      "checks": 36
+    },
+    {
+      "name": "overhaul-final-dock",
+      "checks": 36
+    },
+    {
+      "name": "overhaul-final-perf",
+      "checks": 22
+    },
+    {
+      "name": "overhaul-final-graph",
+      "checks": 64
+    },
+    {
+      "name": "overhaul-final-graphite",
+      "checks": 8
+    },
+    {
+      "name": "overhaul-release-layout",
+      "checks": 48
+    },
+    {
+      "name": "overhaul-release-objects",
+      "checks": 56
+    },
+    {
+      "name": "overhaul-release-home",
+      "checks": 68
+    }
+  ]
+}

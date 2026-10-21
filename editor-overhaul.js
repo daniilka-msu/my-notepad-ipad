@@ -135,6 +135,7 @@
       attributes: true,
       attributeFilter: ["open"],
     });
+    document.addEventListener("notepad:tool", state);
     state();
   }
   function closePanels() {

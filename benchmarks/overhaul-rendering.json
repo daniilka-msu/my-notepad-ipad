@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-21",
+  "graphite": [
+    {
+      "engine": "chromium",
+      "points": 2000,
+      "beforeMedianMs": 5.199999988079071,
+      "afterMedianMs": 2,
+      "deterministic": true,
+      "visible": 2062
+    },
+    {
+      "engine": "webkit",
+      "points": 2000,
+      "beforeMedianMs": 20,
+      "afterMedianMs": 6,
+      "deterministic": true,
+      "visible": 2053
+    }
+  ],
+  "thumbnailRuns": [
+    [
+      {
+        "engine": "chromium",
+        "fullMs": 6.099999964237213,
+        "fullPaints": 2,
+        "thumbnailMs": 3.699999988079071,
+        "thumbnailPaints": 0,
+        "pixels": 20400
+      },
+      {
+        "engine": "webkit",
+        "fullMs": 4,
+        "fullPaints": 2,
+        "thumbnailMs": 3,
+        "thumbnailPaints": 0,
+        "pixels": 20400
+      }
+    ],
+    [
+      {
+        "engine": "chromium",
+        "fullMs": 3.599999964237213,
+        "fullPaints": 2,
+        "thumbnailMs": 2.400000035762787,
+        "thumbnailPaints": 0,
+        "pixels": 20400
+      },
+      {
+        "engine": "webkit",
+        "fullMs": 5,
+        "fullPaints": 2,
+        "thumbnailMs": 3,
+        "thumbnailPaints": 0,
+        "pixels": 20400
+      }
+    ]
+  ],
+  "notes": [
+    "Standalone desktop browsers; not physical iPad or hardware latency.",
+    "Graphite: 3 warmups and 16 alternating trials; 2000 points.",
+    "Thumbnail measurements are single-run wall times and can vary; the invariant is zero editor paints."
+  ]
+}
