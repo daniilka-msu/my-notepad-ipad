@@ -1,7 +1,25 @@
 const Brushes = (() => {
   const labels={regular:'Обычная ручка',ballpoint:'Шариковая ручка',fountain:'Перьевая ручка',pencil:'Карандаш',marker:'Маркер',brush:'Кисть',calligraphy:'Каллиграфическое перо',dashed:'Пунктирная ручка',gel:'Гелевая ручка'};
   const descriptions={regular:'Ровная круглая линия.',ballpoint:'Тонкий округлый штрих с умеренной реакцией на давление.',fountain:'Ширина зависит от направления движения и давления пера.',pencil:'Зернистая текстура графита; рисунок зерна сохраняется.',marker:'Широкий скошенный след с прозрачностью маркера.',brush:'Мягкий край и плавное сужение концов штриха.',calligraphy:'Плоское перо под фиксированным углом 55°.',dashed:'Штрихи и промежутки вдоль траектории без соединения отдельных касаний.',gel:'Плотная округлая линия шире обычной ручки.'};
-  const sprites=new Map();
+  const sprites=new Map(),graphite=new Map();
+  function graphiteSprites(c,s){
+    const matrix=c.getTransform?.(),scale=Math.hypot(matrix?.a??1,matrix?.b??0),size=Math.min(128,Math.max(32,2**Math.ceil(Math.log2(s.width*scale*2))));
+    const key=s.color+':'+s.width+':'+size;
+    if(graphite.has(key))return graphite.get(key);
+    const variants=[];
+    for(let variant=0;variant<16;variant++){
+      const image=document.createElement('canvas');image.width=image.height=size;
+      const g=image.getContext('2d');g.fillStyle=s.color;g.globalAlpha=.45;
+      let seed=17+variant*977;
+      const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)|0;return(seed>>>0)/4294967296};
+      const unit=size/(s.width+2);
+      for(let i=0;i<4;i++){const a=random()*Math.PI*2,r=Math.sqrt(random())*s.width*.5;g.beginPath();g.arc(size/2+Math.cos(a)*r*unit,size/2+Math.sin(a)*r*unit,(.18+random()*.4)*unit,0,Math.PI*2);g.fill()}
+      variants.push(image);
+    }
+    if(graphite.size>=8){const oldest=graphite.keys().next().value;for(const image of graphite.get(oldest))image.width=image.height=1;graphite.delete(oldest)}
+    graphite.set(key,variants);return variants;
+  }
+
   function eachSample(points,width,draw) {
     let total=0;
     for(let i=1;i<points.length;i++){
@@ -10,7 +28,7 @@ const Brushes = (() => {
     const spacing=Math.max(width?Math.max(.08,Math.min(.7,width*.12)):.7,total/12000);
     if(!total){
       const p=points[0];
-      draw(p.x,p.y,p.p,p.pressureValid,0,.5);
+      draw(p.x,p.y,p.p,p.pressureValid,0,.5,p.tiltX,p.tiltY);
       return;
     }
     let walked=0,next=0,lastAngle=0;
@@ -23,7 +41,9 @@ const Brushes = (() => {
           draw(
             a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,
             (a.p??.5)+((b.p??.5)-(a.p??.5))*t,
-            a.pressureValid!==false&&b.pressureValid!==false,lastAngle,next/total
+            a.pressureValid!==false&&b.pressureValid!==false,lastAngle,next/total,
+            Number.isFinite(a.tiltX)&&Number.isFinite(b.tiltX)?a.tiltX+(b.tiltX-a.tiltX)*t:undefined,
+            Number.isFinite(a.tiltY)&&Number.isFinite(b.tiltY)?a.tiltY+(b.tiltY-a.tiltY)*t:undefined
           );
           next+=spacing;
         }
@@ -31,7 +51,7 @@ const Brushes = (() => {
       walked+=d;
     }
     const p=points.at(-1);
-    draw(p.x,p.y,p.p,p.pressureValid,lastAngle||0,1);
+    draw(p.x,p.y,p.p,p.pressureValid,lastAngle||0,1,p.tiltX,p.tiltY);
   }
   function softSprite(color){
     if(sprites.has(color))return sprites.get(color);const image=document.createElement('canvas');image.width=image.height=64;const c=image.getContext('2d'),gradient=c.createRadialGradient(32,32,2,32,32,32);gradient.addColorStop(0,color);gradient.addColorStop(.65,color);gradient.addColorStop(1,'transparent');c.fillStyle=gradient;c.fillRect(0,0,64,64);if(sprites.size>=8)sprites.delete(sprites.keys().next().value);sprites.set(color,image);return image;
@@ -58,21 +78,26 @@ const Brushes = (() => {
     }
     let seed=(s.seed??17)|0;function random(){seed=(Math.imul(seed,1664525)+1013904223)|0;return (seed>>>0)/4294967296}
     const sprite=kind==='brush'?softSprite(s.color):null;
-    eachSample(s.points,s.tightSampling?s.width:0,(x,y,p,pressureValid,angle,progress)=>{
+    const grains=kind==='pencil'&&s.textureVersion===2?graphiteSprites(c,s):null;
+    eachSample(s.points,s.tightSampling?s.width:0,(x,y,p,pressureValid,angle,progress,tiltX,tiltY)=>{
+      const nibAngle=s.tilt&&Number.isFinite(tiltX)&&Number.isFinite(tiltY)&&Math.hypot(tiltX,tiltY)>1?Math.atan2(tiltY,tiltX):null;
       const credible=s.pressure&&pressureValid!==false&&Number.isFinite(p);
       const pressure=credible?Math.min(1,Math.max(0,p)):.5;
       const factor=credible ? .3+pressure*1.4 : 1;
-      if(kind==='pencil'){
+      if(grains){
+        const image=grains[Math.floor(random()*grains.length)],diameter=(width+2)*factor;
+        c.drawImage(image,x-diameter/2,y-diameter/2,diameter,diameter);
+      }else if(kind==='pencil'){
         c.globalAlpha=.45;const radius=width*.5*factor;
         for(let i=0;i<4;i++){const angle=random()*Math.PI*2,r=Math.sqrt(random())*radius;c.beginPath();c.arc(x+Math.cos(angle)*r,y+Math.sin(angle)*r,.18+random()*.4,0,Math.PI*2);c.fill()}
       }else if(kind==='marker'){
         c.save();c.translate(x,y);c.rotate(-.35);c.fillRect(-width/2,-width*.17,width,width*.34);c.restore();
       }else if(kind==='calligraphy'){
-        c.beginPath();c.ellipse(x,y,Math.max(.2,width*.7*factor),Math.max(.2,width*.12*factor),55*Math.PI/180,0,Math.PI*2);c.fill();
+        c.beginPath();c.ellipse(x,y,Math.max(.2,width*.7*factor),Math.max(.2,width*.12*factor),nibAngle??55*Math.PI/180,0,Math.PI*2);c.fill();
       }else if(kind==='brush'){
         const taper=.35+.65*Math.pow(Math.sin(Math.PI*progress),.3),radius=Math.max(.3,width*factor*taper);c.drawImage(sprite,x-radius,y-radius,radius*2,radius*2);
       }else{
-        const thickness=kind==='ballpoint'?width*.8*(credible ? .8+pressure*.4 : 1):kind==='fountain'?width*factor*(.3+.7*Math.abs(Math.sin(angle-Math.PI/6))):width*factor*(kind==='gel'?1.15:1);
+        const thickness=kind==='ballpoint'?width*.8*(credible ? .8+pressure*.4 : 1):kind==='fountain'?width*factor*(.3+.7*Math.abs(Math.sin(angle-(nibAngle??Math.PI/6)))):width*factor*(kind==='gel'?1.15:1);
         c.beginPath();c.arc(x,y,Math.max(.2,thickness/2),0,Math.PI*2);c.fill();
       }
     });

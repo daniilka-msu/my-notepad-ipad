@@ -182,7 +182,7 @@ function render(){const previousPage=renderedPage;renderBooks();renderedPage=boo
   $('page').style.setProperty('--paper',paperColors[book.paperColor]||paperColors.white);
   $('page').style.setProperty('--rule',['gray','black'].includes(book.paperColor)?'#596273':'#dce7f6');
   $('pageCount').textContent=`${page+1} / ${book.pages.length}`;$('prev').disabled=page===0;$('next').disabled=page===book.pages.length-1;$('undo').disabled=book.pages[page].length===0;$('redo').disabled=redo.length===0;paint();updateBackground();autosave();if(previousPage&&previousPage!==renderedPage)flushChanges();document.dispatchEvent(new Event('notepad:render'))}
-function pos(e,r=canvas.getBoundingClientRect()){return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H,p:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1?e.pressure:.5,pressureValid:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1}}
+function pos(e,r=canvas.getBoundingClientRect()){return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H,p:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1?e.pressure:.5,pressureValid:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1,...(e.pointerType==='pen'&&Number.isFinite(e.tiltX)&&Number.isFinite(e.tiltY)&&Math.abs(e.tiltX)<=90&&Math.abs(e.tiltY)<=90?{tiltX:e.tiltX,tiltY:e.tiltY}:{} )}}
 function filterPoint(point,last,smoothing,stabilization){
   if(!last)return {...point};
   const distance=Math.hypot(point.x-last.x,point.y-last.y);
@@ -205,7 +205,7 @@ function appendPoint(e,endpoint=false,r=canvas.getBoundingClientRect()){
   if(!drawing.shape&&!['eraser','stroke-eraser'].includes(drawing.tool)&&distance>(endpoint?32:Math.max(160,elapsed*6))){if(!endpoint)finish();return}
   const point=pos(e,r),last=drawing.points.at(-1);
   if(!drawing.shape&&!endpoint&&activeType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1)drawing.pressure=true;
-  if(endpoint){point.p=last.p;point.pressureValid=last.pressureValid}
+  if(endpoint){point.p=last.p;point.pressureValid=last.pressureValid;if(last.tiltX!==undefined){point.tiltX=last.tiltX;point.tiltY=last.tiltY}}
   if(drawing.shape){drawing.shapeEnd={...point};drawing.points=shapePoints(drawing.shape,drawing.shapeStart||drawing.points[0],point);lastSample={x:e.notepadInputX??e.clientX,y:e.notepadInputY??e.clientY,time:e.timeStamp};return}
   drawing.rawPoints?.push({...point});
   drawing.points.push(['eraser','stroke-eraser'].includes(drawing.tool)?point:filterPoint(point,last,drawing.smoothing,drawing.stabilization));
@@ -222,6 +222,12 @@ inputHint.className='input-hint';
 inputHint.textContent='Неоригинальный стилус может определяться как палец — выберите «Любой стилус и палец». Safari не гарантирует распознавание модели стилуса, включая Apple Pencil.';
 $('toolbar').after(inputHint);
 $('writingSettings').append(inputHint);
+  const tilt=document.createElement('label');
+  tilt.innerHTML='<input id="tiltEnabled" type="checkbox"> Учитывать наклон пера в перьевой и каллиграфической ручке';
+  $('writingSettings').append(tilt);
+  $('tiltEnabled').checked=preferences.tiltEnabled!==false;
+  $('tiltEnabled').onchange=()=>{finish();preferences.tiltEnabled=$('tiltEnabled').checked;Editor.persist()};
+
 let holdTimer=null;
 function scheduleHold(){
   clearTimeout(holdTimer);const current=drawing;
@@ -232,6 +238,7 @@ function schedulePaint(){if(frame===null)frame=requestAnimationFrame(()=>{frame=
 function finish(){
   if(!drawing)return;
   const pointer=activePointer;
+  if(frame!==null){cancelAnimationFrame(frame);frame=null}
   clearTimeout(holdTimer);
   if(drawing.tool==='stroke-eraser'){
     drawing.targets=erasedTargets(drawing,strokePage);
@@ -257,7 +264,8 @@ canvas.addEventListener('pointerdown',e=>{
   strokePage=book.pages[page];lastSample={x:e.notepadInputX??e.clientX,y:e.notepadInputY??e.clientY,time:e.timeStamp};
   captureTarget=e.notepadCaptureTarget||canvas;
   try{captureTarget.setPointerCapture(e.pointerId)}catch{activePointer=null;activeType=null;strokePage=null;lastSample=null;return}
-  drawing={brushVersion:1,seed:crypto.getRandomValues(new Uint32Array(1))[0],filtered:true,stabilization:preferences.stabilization,tool,color:$('color').value,width:Number($('width').value)*(['pen','shape'].includes(tool)?1:5),penType:tool==='marker'?'marker':preferences.penType,smoothing:preferences.smoothing,opacity:preferences.opacity/100,pressure:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1,points:[pos(e)]};
+  drawing={brushVersion:1,tilt:preferences.tiltEnabled!==false,seed:crypto.getRandomValues(new Uint32Array(1))[0],filtered:true,stabilization:preferences.stabilization,tool,color:$('color').value,width:Number($('width').value)*(['pen','shape'].includes(tool)?1:5),penType:tool==='marker'?'marker':preferences.penType,smoothing:preferences.smoothing,opacity:preferences.opacity/100,pressure:e.pointerType==='pen'&&Number.isFinite(e.pressure)&&e.pressure>0&&e.pressure<=1,points:[pos(e)]};
+  if(drawing.penType==='pencil')drawing.textureVersion=2;
   if(tool!=='shape'){drawing.rawPoints=[{...drawing.points[0]}];drawing.tightSampling=true}
   if(tool==='shape'){drawing.shape=$('shapeKind').value;drawing.shapeVersion=1;drawing.shapeStart={...drawing.points[0]};drawing.shapeEnd={...drawing.points[0]};drawing.fill=$('shapeFillEnabled').checked&&Shapes.closed.has(drawing.shape)?$('shapeFill').value:null;drawing.color=$('shapeColor').value;drawing.width=Number($('shapeWidth').value);drawing.opacity=Number($('shapeOpacity').value)/100;drawing.tool='pen';drawing.pressure=false;drawing.smoothing=0}
   if(tool==='eraser'&&preferences.eraserMode==='stroke')drawing.tool='stroke-eraser';
@@ -266,24 +274,27 @@ canvas.addEventListener('pointerdown',e=>{
   saving.input();
   schedulePaint();
 });
+function appendCoalesced(e,rect){
+  let samples;try{samples=e.getCoalescedEvents?.()}catch{}
+  if(!samples?.length)return;
+  if(samples.some((sample,index)=>index&&sample.timeStamp<samples[index-1].timeStamp))samples=[...samples].sort((a,b)=>a.timeStamp-b.timeStamp);
+  for(const sample of samples){if(!drawing)break;if(sample.timeStamp<=e.timeStamp)appendPoint(sample,false,rect)}
+}
 canvas.addEventListener('pointermove',e=>{
   if(!drawing||e.pointerId!==activePointer)return;
   e.preventDefault();
   if(e.pointerType!==activeType)return;
   if(e.pointerType==='mouse'&&e.buttons===0){finish();return}
-  let samples=[];try{samples=e.getCoalescedEvents?.()||[]}catch{}
   const rect=canvas.getBoundingClientRect();
-  if(samples.length){
-    if(samples.some((sample,index)=>index&&sample.timeStamp<samples[index-1].timeStamp))samples=[...samples].sort((a,b)=>a.timeStamp-b.timeStamp);
-    for(const sample of samples){if(!drawing)break;if(sample.timeStamp<=e.timeStamp)appendPoint(sample,false,rect)}
-  }
+  appendCoalesced(e,rect);
   if(drawing)appendPoint(e,false,rect);
   scheduleHold();
   schedulePaint();
 });
 canvas.addEventListener('pointerup',e=>{
   if(e.pointerId!==activePointer||e.pointerType!==activeType)return;
-  appendPoint(e,true);finish();
+  const rect=canvas.getBoundingClientRect();appendCoalesced(e,rect);
+  if(drawing)appendPoint(e,true,rect);finish();
 });
 for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(e.pointerId===activePointer)finish()});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());

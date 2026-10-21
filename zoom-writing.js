@@ -252,6 +252,8 @@ window.ZoomWriting = (() => {
       clientY: main.top + (y / H) * main.height,
     });
     Object.defineProperties(event, {
+      tiltX: { value: e.tiltX },
+      tiltY: { value: e.tiltY },
       notepadCaptureTarget: { value: field },
       notepadInputX: { value: e.clientX },
       notepadInputY: { value: e.clientY },
