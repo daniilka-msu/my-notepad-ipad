@@ -8,9 +8,13 @@ const PageActions=(()=>{
   function refresh(){const h=state();$('undoPages').disabled=!h.undo.length;$('redoPages').disabled=!h.redo.length;$('movePageNumber').max=book.pages.length;$('movePageNumber').value=page+1}
   function changed(){history.get(book).expected=[...book.pages];redo=[];render();PageView.layout();refresh();if($('pagesDialog').open){$('pagesDialog').close();$('showPages').click()}}
   function remember(){finish();const h=state();h.undo.push(snapshot());if(h.undo.length>20)h.undo.shift();h.redo=[]}
-  function duplicate(){remember();book.pages.splice(page+1,0,structuredClone(book.pages[page]));if(book.backgrounds)book.backgrounds.splice(page+1,0,book.backgrounds[page]?{...book.backgrounds[page]}:null);page++;changed()}
-  function move(target){if(!Number.isInteger(target)||target<0||target>=book.pages.length||target===page)return;remember();const [items]=book.pages.splice(page,1);book.pages.splice(target,0,items);if(book.backgrounds){const [bg]=book.backgrounds.splice(page,1);book.backgrounds.splice(target,0,bg)}page=target;changed()}
+  function add(){if(book.canvasDocument)return;remember();book.pages.splice(page+1,0,[]);if(book.backgrounds)book.backgrounds.splice(page+1,0,null);page++;changed()}
+  function duplicate(){if(book.canvasDocument)return;remember();book.pages.splice(page+1,0,structuredClone(book.pages[page]));if(book.backgrounds)book.backgrounds.splice(page+1,0,book.backgrounds[page]?{...book.backgrounds[page]}:null);page++;changed()}
+  function move(target){if(book.canvasDocument)return;if(!Number.isInteger(target)||target<0||target>=book.pages.length||target===page)return;remember();const [items]=book.pages.splice(page,1);book.pages.splice(target,0,items);if(book.backgrounds){const [bg]=book.backgrounds.splice(page,1);book.backgrounds.splice(target,0,bg)}page=target;changed()}
   function restore(from,to){finish();const h=state();if(!h[from].length)return;h[to].push(snapshot());const value=h[from].pop();book.pages=value.pages;if(value.backgrounds)book.backgrounds=value.backgrounds;page=value.page;changed()}
+  const remove=document.createElement('button');remove.id='deletePage';remove.textContent='Удалить страницу';actions.append(remove);
+  remove.onclick=()=>{finish();if(book.canvasDocument)return;if(!confirm('Удалить текущую страницу? Действие можно отменить в панели страниц.'))return;remember();if(book.pages.length===1){book.pages[0]=[];if(book.backgrounds)book.backgrounds[0]=null}else{book.pages.splice(page,1);if(book.backgrounds)book.backgrounds.splice(page,1);page=Math.min(page,book.pages.length-1)}changed()};
+  $('addPage').onclick=add;
   $('duplicatePage').onclick=duplicate;$('movePage').onclick=()=>move(Number($('movePageNumber').value)-1);$('undoPages').onclick=()=>restore('undo','redo');$('redoPages').onclick=()=>restore('redo','undo');$('showPages').addEventListener('click',refresh);
   const png=document.createElement('button');png.id='exportPng';png.textContent='PNG';png.title='Скачать текущую страницу как PNG';$('exportPdf').after(png);
   function download(blob,name){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
@@ -30,5 +34,5 @@ const PageActions=(()=>{
     const keys={p:'pen',h:'hand',e:'eraser',m:'marker'};if(keys[e.key.toLowerCase()]){e.preventDefault();Editor.choose(keys[e.key.toLowerCase()])}
     if(e.key==='ArrowLeft')$('prev').click();if(e.key==='ArrowRight')$('next').click();if(e.key.toLowerCase()==='f')$('focusMode').click();
   });
-  return {duplicate,move,pngBlob,refresh};
+  return {add,duplicate,move,pngBlob,refresh};
 })();

@@ -11,7 +11,7 @@ const BrushTools = (() => {
   }
   for(const [local,source]of [['brushColor','color'],['brushWidth','width'],['brushOpacity','opacity'],['brushSmoothing','smoothing']])$(local).oninput=()=>{$(source).value=$(local).value;$(source).dispatchEvent(new Event('input'));sync()};
   $('penType').addEventListener('input',()=>{Editor.choose(preferences.penType==='marker'?'marker':'pen')});
-  function open(){finish();if(tool==='marker'){$('penType').value='marker';$('penType').dispatchEvent(new Event('input'))}sync();dialog.showModal()}
+  function open(){if(dialog.open){dialog.close();return}finish();if(tool==='marker'){$('penType').value='marker';$('penType').dispatchEvent(new Event('input'))}sync();dialog.show()}
   document.querySelector('[data-tool=pen]').onclick=()=>{const active=tool==='pen';Editor.choose('pen');if(active||preferences.openToolOptions)open()};
   document.querySelector('[data-tool=marker]').onclick=()=>{const active=tool==='marker';Editor.choose('marker');if(active||preferences.openToolOptions)open()};
   const automatic=document.createElement('label');automatic.innerHTML='<input id="openToolOptions" type="checkbox"> Открывать параметры инструмента при выборе';$('writingSettings').append(automatic);
@@ -24,7 +24,7 @@ const BrushTools = (() => {
     $('eraserWidthValue').textContent=$('eraserWidth').value+' px';
     document.querySelector('[data-tool=eraser]').title=preferences.eraserMode==='stroke'?'Ластик штрихов · повторное нажатие: параметры':'Ластик участков · повторное нажатие: параметры';
   }
-  document.querySelector('[data-tool=eraser]').onclick=()=>{const active=tool==='eraser';Editor.choose('eraser');if(active||preferences.openToolOptions){syncEraser();eraserDialog.showModal()}};
+  document.querySelector('[data-tool=eraser]').onclick=()=>{const active=tool==='eraser';Editor.choose('eraser');if(active||preferences.openToolOptions){syncEraser();if(eraserDialog.open)eraserDialog.close();else eraserDialog.show()}};
   $('quickEraserMode').oninput=()=>{$('eraserMode').value=$('quickEraserMode').value;$('eraserMode').dispatchEvent(new Event('input'));syncEraser()};
   $('eraserMode').addEventListener('input',syncEraser);
   $('eraserWidth').oninput=()=>{preferences.eraserWidth=Number($('eraserWidth').value);Editor.persist();syncEraser()};

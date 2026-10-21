@@ -8,14 +8,7 @@ const Editor=(()=>{
   const pagesButton=document.createElement('button');pagesButton.id='showPages';pagesButton.textContent='Страницы';$('topbar').insertBefore(pagesButton,$('addPage'));
   const dialog=document.createElement('dialog');dialog.id='pagesDialog';dialog.setAttribute('aria-labelledby','pagesTitle');dialog.innerHTML='<div class="dialog-header"><h2 id="pagesTitle">Страницы</h2><button id="closePages" aria-label="Закрыть страницы">Закрыть</button></div><form id="jumpForm"><label>Перейти к странице <input id="pageNumber" type="number" min="1" required></label><button>Перейти</button></form><div id="pageThumbnails"></div>';document.body.append(dialog);
   let previewToken=0;
-  pagesButton.onclick=async()=>{
-    finish();const notebook=book,token=++previewToken;$('pageNumber').max=notebook.pages.length;$('pageNumber').value=page+1;$('pageThumbnails').replaceChildren();dialog.showModal();
-    for(let i=0;i<notebook.pages.length;i++){
-      if(token!==previewToken||!dialog.open)break;
-      const button=document.createElement('button');button.className='page-thumb';button.setAttribute('aria-label','Страница '+(i+1));button.setAttribute('aria-current',String(i===page));button.textContent=String(i+1);button.onclick=()=>{go(i);dialog.close()};$('pageThumbnails').append(button);
-      try{const image=await Documents.compose(notebook,i);if(token!==previewToken||!dialog.open)break;const thumb=document.createElement('canvas');thumb.width=120;thumb.height=Math.round(120*image.height/image.width);thumb.getContext('2d').drawImage(image,0,0,thumb.width,thumb.height);button.prepend(thumb);image.width=image.height=0}catch{button.title='Не удалось загрузить предпросмотр'}
-    }
-  };
+  pagesButton.onclick=()=>window.PageBrowser?.toggle();
   $('closePages').onclick=()=>dialog.close();dialog.addEventListener('close',()=>previewToken++);
   $('jumpForm').onsubmit=e=>{e.preventDefault();const n=Number($('pageNumber').value);if(Number.isInteger(n)&&n>=1&&n<=book.pages.length){go(n-1);dialog.close()}};
   function go(index){finish();page=index;redo=[];render();PageView.layout()}

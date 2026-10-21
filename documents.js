@@ -49,5 +49,28 @@ const Documents=(()=>{
     try{book=notebook;page=index;paint(false);c.drawImage(canvas,0,0,W,height)}finally{book=previousBook;page=previousPage;paint()}
     return target;
   }
-  return {importFile,compose,pdfjs};
+  async function thumbnail(notebook,index){
+    const height=Paper.geometry(notebook).outputHeight, width=120;
+    const target=document.createElement('canvas'),content=document.createElement('canvas'),scratch=document.createElement('canvas');
+    target.width=content.width=scratch.width=width;
+    target.height=content.height=scratch.height=Math.round(width*height/W);
+    const c=target.getContext('2d'),ink=content.getContext('2d'),sx=width/W,sy=target.height/H;
+    c.fillStyle=paperColors[notebook.paperColor]||paperColors.white;c.fillRect(0,0,width,target.height);
+    const background=notebook.backgrounds?.[index];
+    if(background){const value=await NotepadStore.asset(background.id);if(!value)throw new Error('Нет фона');const img=await image(value);const fit=Math.min(width/img.naturalWidth,target.height/img.naturalHeight),w=img.naturalWidth*fit,h=img.naturalHeight*fit;c.drawImage(img,(width-w)/2,(target.height-h)/2,w,h)}
+    else{c.save();c.scale(sx,sy);Paper.draw(c,notebook);c.restore()}
+    const items=notebook.pages[index];
+    await Promise.all([ImageObjects.prepare(items),StudyObjects.prepare(items)]);
+    if(activeInkInput()){const error=new Error('Письмо продолжается');error.name='InkBusyError';throw error}
+    const previousBook=book,previousPage=page;
+    try{
+      book=notebook;page=index;ink.setTransform(sx,0,0,sy,0,0);
+      const hidden=new Set(items.filter(s=>s.tool==='stroke-eraser').flatMap(s=>s.targets));
+      const surface={scratch,view:{x:0,y:0,width:W,height:H},sx,sy};
+      for(const [i,value]of Shapes.ordered(items,false))if(value&&!hidden.has(i)&&value.tool!=='stroke-eraser')stroke(value,ink,surface);
+      c.drawImage(content,0,0);
+    }finally{book=previousBook;page=previousPage;content.width=content.height=scratch.width=scratch.height=1}
+    return target;
+  }
+  return {importFile,compose,pdfjs,thumbnail};
 })();

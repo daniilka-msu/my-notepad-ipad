@@ -282,7 +282,7 @@ window.ZoomWriting = (() => {
       } else if (movingPointer !== e.pointerId) return;
       e.preventDefault();
       const event = mapped(e);
-      if (type === "pointermove")
+      if (type === "pointermove" || type === "pointerup")
         Object.defineProperty(event, "getCoalescedEvents", {
           value: () => {
             let samples = [];

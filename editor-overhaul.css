@@ -1,0 +1,334 @@
+#app,
+#pagesDialog,
+#brushDialog,
+#eraserDialog,
+#penDock,
+#settingsDialog label {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input,
+textarea,
+[contenteditable="true"],
+.selectable-content {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+#topbar {
+  min-height: 56px;
+  padding: 6px 16px;
+  background: var(--muted-surface);
+}
+.document-eyebrow {
+  display: none;
+}
+#bookTitle {
+  font-size: 15px;
+  letter-spacing: -0.2px;
+}
+#navigationMode[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--selected);
+}
+#toolbar {
+  min-height: 62px;
+  padding: 6px 16px;
+  gap: 8px;
+}
+.tool-group {
+  gap: 3px;
+}
+.tool.active {
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+#writingShelf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  order: 1;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+.writing-colors,
+.writing-widths {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+#writingShelf button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 10px;
+  border-radius: 50%;
+}
+.writing-colors span {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #9996;
+}
+.writing-widths span {
+  display: block;
+  width: 22px;
+  border-radius: 4px;
+  background: currentColor;
+}
+#writingShelf [aria-pressed="true"] {
+  background: var(--selected);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+#preciseInk {
+  position: relative;
+}
+#preciseInk summary {
+  list-style: none;
+}
+#preciseInk summary::-webkit-details-marker {
+  display: none;
+}
+.precise-ink-content {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: min(340px, calc(100vw - 32px));
+  box-shadow: var(--shadow);
+}
+.precise-ink-content .pen-properties {
+  padding: 0;
+  border: 0;
+  flex-wrap: wrap;
+}
+.history-tools {
+  order: 2;
+  margin-left: auto;
+}
+#extraTools {
+  order: 3;
+}
+#toggleEraserMode {
+  order: 1;
+}
+#statusbar {
+  min-height: 48px;
+  background: var(--muted-surface);
+}
+#brushDialog.floating-tool-panel,
+#eraserDialog.floating-tool-panel {
+  position: fixed;
+  z-index: 45;
+  left: 20px;
+  top: 126px;
+  right: auto;
+  bottom: auto;
+  margin: 0;
+  width: min(430px, calc(100vw - 40px));
+  max-height: calc(100dvh - 200px);
+  overflow: auto;
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+.floating-tool-panel[open] {
+  animation: ink-panel-in 0.15s ease-out;
+}
+#brushDialog #brushProperties {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin: 12px 0;
+}
+#brushDialog #brushProperties label {
+  grid-template-columns: 1fr auto;
+  gap: 2px;
+  font-size: 11px;
+}
+#brushProperties label input {
+  grid-row: 2;
+  grid-column: 1/-1;
+}
+#brushProperties label output {
+  grid-row: 1;
+  grid-column: 2;
+}
+#brushOptions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 12px;
+}
+#brushOptions button {
+  font-size: 11px;
+  min-height: 58px;
+  gap: 2px;
+}
+#brushOptions canvas {
+  height: 18px;
+  max-height: 18px;
+}
+#brushPreview {
+  height: 36px;
+}
+#brushDialog .settings-content > .hint:last-of-type {
+  display: none;
+}
+#pagesDialog {
+  position: fixed;
+  z-index: 42;
+  left: 12px;
+  top: 122px;
+  right: auto;
+  bottom: 64px;
+  margin: 0;
+  width: 280px;
+  max-width: calc(100vw - 24px);
+  max-height: none;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+#pagesDialog .dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  padding: 12px 16px;
+}
+#pagesDialog #jumpForm {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  gap: 8px;
+}
+#pagesDialog #jumpForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+#pagesDialog #jumpForm button {
+  align-self: flex-end;
+}
+#pagesDialog #pageNumber {
+  width: 100%;
+}
+#pageActions {
+  margin: 0 12px;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--muted-surface);
+}
+#pageActions > button {
+  width: 100%;
+  justify-content: flex-start;
+}
+#pageActions label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+#movePageNumber {
+  width: 64px;
+}
+#pageThumbnails {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+}
+.page-thumb {
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px;
+  background: var(--muted-surface);
+}
+.page-thumb canvas {
+  width: 100%;
+  height: auto;
+  max-height: 140px;
+  object-fit: contain;
+}
+.page-thumb[aria-current="true"] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  color: var(--accent);
+}
+#deletePage {
+  color: var(--danger);
+}
+body.toolbar-bottom #brushDialog.floating-tool-panel,
+body.toolbar-bottom #eraserDialog.floating-tool-panel {
+  top: auto;
+  bottom: 170px;
+}
+@keyframes ink-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 1100px) {
+  #writingShelf {
+    order: 4;
+    flex-basis: 100%;
+    border: 0;
+    padding: 0;
+    justify-content: center;
+  }
+  #toolbar {
+    justify-content: flex-start;
+  }
+  #brushDialog.floating-tool-panel,
+  #eraserDialog.floating-tool-panel,
+  #pagesDialog {
+    top: 176px;
+  }
+}
+@media (max-width: 650px) {
+  #topbar {
+    padding: 6px 8px;
+    gap: 2px;
+  }
+  #navigationMode {
+    width: 44px;
+  }
+  #bookTitle {
+    font-size: 14px;
+  }
+  #toolbar {
+    padding: 4px 8px;
+  }
+  #writingShelf {
+    justify-content: flex-start;
+    gap: 0;
+  }
+  #writingShelf button {
+    width: 44px;
+    min-width: 44px;
+  }
+  #pagesDialog {
+    width: min(280px, calc(100vw - 24px));
+  }
+  #brushDialog.floating-tool-panel,
+  #eraserDialog.floating-tool-panel {
+    left: 12px;
+    width: calc(100vw - 24px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .floating-tool-panel[open] {
+    animation: none;
+  }
+}
